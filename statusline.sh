@@ -1,6 +1,13 @@
 #!/bin/bash
 input=$(cat)
 
+# Detect platform and set reverse cat command
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    TAC_CMD="gtac"  # macOS with coreutils
+else
+    TAC_CMD="tac"   # Linux
+fi
+
 # Extract basic info from JSON input
 MODEL=$(echo "$input" | jq -r '.model.display_name // "Claude"')
 DIR=$(echo "$input" | jq -r '.workspace.current_dir // empty')
@@ -65,8 +72,8 @@ TOTAL_TOKENS=0
 
 # Method 1: Parse transcript file for actual API usage (most accurate)
 if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
-    # Use tac (Linux) to read file in reverse, find last assistant message with usage
-    usage_line=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | grep -m 1 '"type":"assistant"')
+    # Use tac (Linux) or gtac (macOS) to read file in reverse, find last assistant message with usage
+    usage_line=$($TAC_CMD "$TRANSCRIPT_PATH" 2>/dev/null | grep -m 1 '"type":"assistant"')
 
     if [ -n "$usage_line" ]; then
         usage_data=$(echo "$usage_line" | jq -r '.message.usage // empty' 2>/dev/null)
@@ -107,7 +114,7 @@ LIME=$'\033[38;5;108m'
 USER_PROMPT=""
 if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
     # Find last actual user message (exclude tool_result, commands, system messages)
-    user_line=$(tac "$TRANSCRIPT_PATH" 2>/dev/null | grep '"type":"user"' | grep -v 'tool_result' | grep -v 'command-name' | grep -v 'local-command' | grep -v 'Caveat:' | head -1)
+    user_line=$($TAC_CMD "$TRANSCRIPT_PATH" 2>/dev/null | grep '"type":"user"' | grep -v 'tool_result' | grep -v 'command-name' | grep -v 'local-command' | grep -v 'Caveat:' | head -1)
     if [ -n "$user_line" ]; then
         # Extract content (can be string or array)
         USER_PROMPT=$(echo "$user_line" | jq -r 'if .message.content | type == "string" then .message.content else .message.content[0].text // empty end' 2>/dev/null)

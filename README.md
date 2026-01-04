@@ -2,23 +2,70 @@
 
 A curated collection of skills, agents, commands, and hooks to supercharge your Claude Code experience. Copy what you need to `~/.claude/` and start using immediately.
 
-## Quick Start
+## Prerequisites
+
+Before installation, ensure you have:
+
+- **jq** - Required for statusline JSON parsing
+- **git** - Recommended for git workflow features
+- **Platform-specific**:
+  - **macOS**: `coreutils` (for `gtac` command used by statusline)
+  - **Linux**: `coreutils` (usually pre-installed, provides `tac` command)
+
+The automated installer will detect and offer to install missing dependencies.
+
+## Automatic Installation (Recommended)
+
+The easiest way to install the toolkit is using the automated installer:
 
 ```bash
 # Clone the toolkit
 git clone https://github.com/YOUR_USERNAME/claude-code-toolkit.git
+cd claude-code-toolkit
 
-# Copy everything to your Claude Code config
-cp -r claude-code-toolkit/skills/* ~/.claude/skills/
-cp -r claude-code-toolkit/agents/* ~/.claude/agents/
-cp -r claude-code-toolkit/commands/* ~/.claude/commands/
-cp claude-code-toolkit/hooks.json ~/.claude/hooks.json
-cp claude-code-toolkit/statusline.sh ~/.claude/statusline.sh
+# Run the installer (auto-detects macOS or Linux)
+./install.sh
+```
+
+The installer will:
+- ✓ Check for required dependencies (jq, git, coreutils)
+- ✓ Offer to install missing packages via package manager
+- ✓ Create necessary directories (~/.claude/*)
+- ✓ Copy all skills, agents, commands, and hooks
+- ✓ Set up statusline with proper permissions
+- ✓ Optionally configure settings.json
+
+### Platform-Specific Installers
+
+You can also run the platform-specific installer directly:
+
+```bash
+# For macOS
+./install-mac.sh
+
+# For Linux
+./install-linux.sh
+```
+
+## Manual Installation
+
+If you prefer manual installation or want selective components:
+
+```bash
+# Create directories
+mkdir -p ~/.claude/{skills,agents,commands,hooks}
+
+# Copy everything
+cp -r skills/* ~/.claude/skills/
+cp -r agents/* ~/.claude/agents/
+cp -r commands/* ~/.claude/commands/
+cp hooks.json ~/.claude/hooks.json
+cp statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
 
 # Or copy selectively - pick only what you need
-cp -r claude-code-toolkit/skills/git ~/.claude/skills/
-cp claude-code-toolkit/agents/git-ops.md ~/.claude/agents/
+cp -r skills/git ~/.claude/skills/
+cp agents/git-ops.md ~/.claude/agents/
 ```
 
 ## What's Included
@@ -80,12 +127,22 @@ Hooks are event-driven automation scripts. Configuration lives in `~/.claude/hoo
 
 | File | Description |
 |------|-------------|
-| **statusline.sh** | Custom terminal status line showing model, directory, git branch, context usage with visual progress bar, and last user prompt |
+| **statusline.sh** | Cross-platform terminal status line (macOS/Linux) showing model, directory, git branch, context usage with visual progress bar, and last user prompt. Automatically detects platform and uses `gtac` (macOS) or `tac` (Linux). |
 | **settings.json** | Example settings with statusline and Playwright plugin enabled |
 
 ## Installation Options
 
-### Option 1: Full Installation
+### Option 1: Automated Installation (Recommended)
+
+Use the install script for hassle-free setup:
+
+```bash
+./install.sh
+```
+
+See [Automatic Installation](#automatic-installation-recommended) section above for details.
+
+### Option 2: Full Manual Installation
 
 Copy everything to get the complete toolkit:
 
@@ -111,7 +168,7 @@ chmod +x ~/.claude/statusline.sh
 # }
 ```
 
-### Option 2: Selective Installation
+### Option 3: Selective Installation
 
 Pick only what you need:
 
@@ -135,7 +192,7 @@ cp -r skills/{create-plans,spec-interview} ~/.claude/skills/
 cp commands/spec-interview.md ~/.claude/commands/
 ```
 
-### Option 3: Project-Level
+### Option 4: Project-Level Installation
 
 For project-specific use, copy to `.claude/` in your project:
 
