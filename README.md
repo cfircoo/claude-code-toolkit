@@ -16,7 +16,7 @@ The automated installer will detect and offer to install missing dependencies.
 
 ## Automatic Installation (Recommended)
 
-The easiest way to install the toolkit is using the automated installer:
+The easiest way to install the toolkit is using the interactive installer:
 
 ```bash
 # Clone the toolkit
@@ -27,13 +27,37 @@ cd claude-code-toolkit
 ./install.sh
 ```
 
-The installer will:
-- ✓ Check for required dependencies (jq, git, coreutils)
-- ✓ Offer to install missing packages via package manager
-- ✓ Create necessary directories (~/.claude/*)
-- ✓ Copy all skills, agents, commands, and hooks
-- ✓ Set up statusline with proper permissions
-- ✓ Optionally configure settings.json
+### Interactive Installation Modes
+
+The installer offers flexible installation options:
+
+**1. Install All (Recommended)**
+- One-click installation of all components
+- Fastest and simplest option
+- Installs: skills, agents, commands, hooks, statusline, and settings
+
+**2. Select by Folder**
+- Choose which component types to install
+- For each folder (skills/agents/commands/hooks), you can:
+  - **All** - Copy all items in that folder
+  - **One-by-one** - Review and select each item individually
+  - **Skip** - Skip that entire folder
+- Perfect for customizing your installation
+
+**3. Skip Installation**
+- Exit without copying anything
+- Useful if you just want to browse the code
+
+### What the Installer Does
+
+- ✓ Checks for required dependencies (jq, git, coreutils)
+- ✓ Offers to install missing packages via package manager
+- ✓ Creates necessary directories (`~/.claude/*`)
+- ✓ **Replaces existing skill folders** (ensures clean updates, no file conflicts)
+- ✓ Copies selected components with detailed logging
+- ✓ Sets up statusline with proper permissions
+- ✓ **Intelligently merges settings.json** (preserves your existing settings)
+- ✓ Automatically backs up `hooks.json` and `settings.json` to `.bak` files
 
 ### Platform-Specific Installers
 
@@ -128,7 +152,7 @@ Hooks are event-driven automation scripts. Configuration lives in `~/.claude/hoo
 | File | Description |
 |------|-------------|
 | **statusline.sh** | Cross-platform terminal status line (macOS/Linux) showing model, directory, git branch, context usage with visual progress bar, and last user prompt. Automatically detects platform and uses `gtac` (macOS) or `tac` (Linux). |
-| **settings.json** | Example settings with statusline and Playwright plugin enabled |
+| **settings.json** | Example settings with statusLine (including `padding: 0`) and Playwright plugin enabled. Automatically merged with your existing settings during installation. |
 
 ## Installation Options
 
@@ -163,7 +187,8 @@ chmod +x ~/.claude/statusline.sh
 # {
 #   "statusLine": {
 #     "type": "command",
-#     "command": "~/.claude/statusline.sh"
+#     "command": "~/.claude/statusline.sh",
+#     "padding": 0
 #   }
 # }
 ```
