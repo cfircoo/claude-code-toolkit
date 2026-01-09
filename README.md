@@ -126,7 +126,7 @@ Agents are specialized Claude instances that run autonomously in isolated contex
 | **fullstack-ui-designer** | Creates distinctive UI components | Frontend component design |
 | **fullstack-qa-debugger** | Validates integrations and catches errors | Testing and debugging frontends |
 
-### Commands (6)
+### Commands (7)
 
 Commands are slash-invoked prompts for common operations. They live in `~/.claude/commands/`.
 
@@ -138,6 +138,7 @@ Commands are slash-invoked prompts for common operations. They live in `~/.claud
 | `/ship` | Full workflow: commit + push + PR | `/ship` |
 | `/db` | Database operations | `/db setup`, `/db model User`, `/db migration` |
 | `/spec-interview` | Build project specification through interview | `/spec-interview my-project` |
+| `/install-toolkit` | Interactive installer - asks preferences then installs | `/install-toolkit [path]` |
 
 ### Hooks (1)
 

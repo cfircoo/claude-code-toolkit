@@ -51,6 +51,61 @@ else
     echo -e "${GREEN}✓${NC} coreutils installed (gtac available)"
 fi
 
+# Check for Claude Code CLI
+echo
+echo -e "${BLUE}→ Checking Claude Code CLI...${NC}"
+if command -v claude &> /dev/null; then
+    CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1)
+    echo -e "${GREEN}✓${NC} Claude Code installed: ${DIM}$CLAUDE_VERSION${NC}"
+
+    # Check for updates via Homebrew
+    if command -v brew &> /dev/null; then
+        echo -e "${BLUE}Check for Claude Code updates? (y/n)${NC}"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}→ Checking for updates...${NC}"
+            OUTDATED=$(brew outdated --cask claude-code 2>/dev/null)
+            if [ -n "$OUTDATED" ]; then
+                echo -e "${YELLOW}⚠${NC} Update available"
+                echo -e "${BLUE}Update Claude Code now? (y/n)${NC}"
+                read -r response
+                if [[ "$response" =~ ^[Yy]$ ]]; then
+                    echo -e "${BLUE}→ Updating Claude Code via Homebrew...${NC}"
+                    brew upgrade --cask claude-code
+                    NEW_VERSION=$(claude --version 2>/dev/null | head -1)
+                    echo -e "${GREEN}✓${NC} Claude Code updated: $NEW_VERSION"
+                fi
+            else
+                echo -e "${GREEN}✓${NC} Claude Code is up to date"
+            fi
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠${NC} Claude Code CLI not found"
+
+    # Install via Homebrew (preferred on macOS)
+    if command -v brew &> /dev/null; then
+        echo -e "${BLUE}Install Claude Code via Homebrew? (y/n)${NC}"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}→ Installing Claude Code via Homebrew...${NC}"
+            brew install --cask claude-code
+            if command -v claude &> /dev/null; then
+                CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1)
+                echo -e "${GREEN}✓${NC} Claude Code installed: $CLAUDE_VERSION"
+            else
+                echo -e "${YELLOW}⚠${NC} Claude Code installed. You may need to restart your terminal."
+                echo -e "${DIM}   Or add /opt/homebrew/bin to your PATH${NC}"
+            fi
+        fi
+    else
+        echo -e "${DIM}   Install Homebrew first: https://brew.sh${NC}"
+        echo -e "${DIM}   Then run: brew install --cask claude-code${NC}"
+    fi
+fi
+
+echo
+
 # Offer to install missing dependencies via Homebrew
 if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
     echo

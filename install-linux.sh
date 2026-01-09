@@ -78,6 +78,59 @@ else
     echo -e "${GREEN}✓${NC} tac available (coreutils installed)"
 fi
 
+# Check for Claude Code CLI
+echo
+echo -e "${BLUE}→ Checking Claude Code CLI...${NC}"
+if command -v claude &> /dev/null; then
+    CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1)
+    echo -e "${GREEN}✓${NC} Claude Code installed: ${DIM}$CLAUDE_VERSION${NC}"
+
+    # Check for updates if npm is available
+    if command -v npm &> /dev/null; then
+        echo -e "${BLUE}Check for Claude Code updates? (y/n)${NC}"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}→ Checking for updates...${NC}"
+            LATEST=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "unknown")
+            CURRENT=$(echo "$CLAUDE_VERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            if [ "$LATEST" != "unknown" ] && [ "$LATEST" != "$CURRENT" ]; then
+                echo -e "${YELLOW}⚠${NC} Update available: $CURRENT → $LATEST"
+                echo -e "${BLUE}Update Claude Code now? (y/n)${NC}"
+                read -r response
+                if [[ "$response" =~ ^[Yy]$ ]]; then
+                    echo -e "${BLUE}→ Updating Claude Code...${NC}"
+                    npm install -g @anthropic-ai/claude-code@latest
+                    echo -e "${GREEN}✓${NC} Claude Code updated to $LATEST"
+                fi
+            else
+                echo -e "${GREEN}✓${NC} Claude Code is up to date"
+            fi
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠${NC} Claude Code CLI not found"
+
+    # Check if npm is available for installation
+    if command -v npm &> /dev/null; then
+        echo -e "${BLUE}Install Claude Code CLI via npm? (y/n)${NC}"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}→ Installing Claude Code...${NC}"
+            npm install -g @anthropic-ai/claude-code@latest
+            if command -v claude &> /dev/null; then
+                CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1)
+                echo -e "${GREEN}✓${NC} Claude Code installed: $CLAUDE_VERSION"
+            else
+                echo -e "${RED}✗${NC} Installation failed. Try manually: npm install -g @anthropic-ai/claude-code"
+            fi
+        fi
+    else
+        echo -e "${DIM}   Install npm first, then run: npm install -g @anthropic-ai/claude-code${NC}"
+    fi
+fi
+
+echo
+
 # Offer to install missing dependencies
 if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
     echo
