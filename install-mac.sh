@@ -63,8 +63,10 @@ if command -v claude &> /dev/null; then
         echo -e "${BLUE}Check for Claude Code updates? (y/n)${NC}"
         read -r response
         if [[ "$response" =~ ^[Yy]$ ]]; then
-            echo -e "${BLUE}→ Checking for updates...${NC}"
-            OUTDATED=$(brew outdated --cask claude-code 2>/dev/null)
+            echo -e "${BLUE}→ Checking for updates (this may take a moment)...${NC}"
+            # Try to check without updating brew first - faster
+            OUTDATED=$(timeout 10 brew outdated --cask claude-code 2>/dev/null || echo "")
+
             if [ -n "$OUTDATED" ]; then
                 echo -e "${YELLOW}⚠${NC} Update available"
                 echo -e "${BLUE}Update Claude Code now? (y/n)${NC}"
@@ -76,7 +78,7 @@ if command -v claude &> /dev/null; then
                     echo -e "${GREEN}✓${NC} Claude Code updated: $NEW_VERSION"
                 fi
             else
-                echo -e "${GREEN}✓${NC} Claude Code is up to date"
+                echo -e "${GREEN}✓${NC} Claude Code is up to date (or check timed out)"
             fi
         fi
     fi
