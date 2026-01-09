@@ -1,6 +1,8 @@
 ---
 name: spec-interview
 description: Interviews users to build comprehensive project specifications. Use when starting a new project, feature, or when user needs help defining requirements through guided discovery.
+model: opus4.5
+context: fork
 ---
 
 <objective>
