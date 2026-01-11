@@ -121,6 +121,34 @@ bashToolPatterns:
     reason: clearing shell history
 
   # ---------------------------------------------------------------------------
+  # ENVIRONMENT VARIABLE EXPOSURE (blocks reading secrets from env)
+  # ---------------------------------------------------------------------------
+  - pattern: '\bprintenv\b'
+    reason: printenv exposes environment variables (may contain secrets)
+
+  - pattern: '\benv\b(?!\s+\S+=)'
+    reason: env command exposes environment variables (may contain secrets)
+
+  - pattern: '\bexport\s+-p\b'
+    reason: export -p exposes all exported variables
+
+  - pattern: '\bexport\s*$'
+    reason: export without args exposes all exported variables
+
+  - pattern: '\bdeclare\s+-x\b'
+    reason: declare -x exposes exported variables
+
+  - pattern: '\bset\s*$'
+    reason: set without args exposes shell variables
+
+  - pattern: '\bcompgen\s+-e\b'
+    reason: compgen -e lists environment variable names
+
+  - pattern: '\becho\s+\$\{?\w*[A-Z_]+\w*\}?'
+    reason: echo with env variable (may expose secrets)
+    ask: true
+
+  # ---------------------------------------------------------------------------
   # AWS CLI DESTRUCTIVE OPERATIONS
   # ---------------------------------------------------------------------------
   - pattern: '\baws\s+s3\s+rm\s+.*--recursive'
