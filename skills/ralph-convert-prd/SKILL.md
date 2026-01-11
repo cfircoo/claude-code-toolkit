@@ -1,7 +1,7 @@
 ---
 name: ralph-convert-prd
 description: Converts Product Requirements Documents into prd.json format for the Ralph autonomous agent system. Use when preparing PRDs for Ralph execution, breaking down features into atomic user stories, or when the user mentions Ralph, prd.json, or autonomous agent workflows.
-model: opus4.5
+model: claude-opus-4-5
 context: fork
 ---
 

@@ -1,5 +1,6 @@
 {
   "enabledPlugins": {
-    "atlassian@claude-plugins-official": true
+    "atlassian@claude-plugins-official": true,
+    "github@claude-plugins-official": true
   }
 }

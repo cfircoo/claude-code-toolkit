@@ -94,7 +94,7 @@ cp agents/git-ops.md ~/.claude/agents/
 
 ## What's Included
 
-### Skills (11)
+### Skills (14)
 
 Skills are modular capabilities that provide domain expertise on demand. They live in `~/.claude/skills/`.
 
@@ -111,6 +111,9 @@ Skills are modular capabilities that provide domain expertise on demand. They li
 | **create-slash-commands** | Guide to creating slash commands | Building reusable command prompts |
 | **create-agent-skills** | Guide to creating skills | Building modular capabilities |
 | **create-meta-prompts** | Claude-to-Claude pipeline prompts | Multi-stage workflows (research -> plan -> implement) |
+| **ralph-orchestrator** | Orchestrates Ralph autonomous agent pipeline | Building features with spec → PRD → prd.json → execution |
+| **generate-prd** | Creates PRDs through guided discovery | Defining feature requirements |
+| **ralph-convert-prd** | Converts PRDs to atomic user stories | Preparing PRDs for Ralph execution |
 
 ### Agents (7)
 
@@ -126,19 +129,22 @@ Agents are specialized Claude instances that run autonomously in isolated contex
 | **fullstack-ui-designer** | Creates distinctive UI components | Frontend component design |
 | **fullstack-qa-debugger** | Validates integrations and catches errors | Testing and debugging frontends |
 
-### Commands (7)
+### Commands (11)
 
 Commands are slash-invoked prompts for common operations. They live in `~/.claude/commands/`.
 
 | Command | Description | Usage |
 |---------|-------------|-------|
-| `/commit` | Stage and commit with proper message format | `/commit` |
-| `/push` | Push commits to remote | `/push` |
-| `/pr` | Create a pull request | `/pr` |
-| `/ship` | Full workflow: commit + push + PR | `/ship` |
+| `/git-commit` | Stage and commit with proper message format | `/git-commit` |
+| `/git-push` | Push commits to remote | `/git-push` |
+| `/git-pr` | Create a pull request | `/git-pr` |
+| `/git-ship` | Full workflow: commit + push + PR | `/git-ship` |
 | `/db` | Database operations | `/db setup`, `/db model User`, `/db migration` |
 | `/spec-interview` | Build project specification through interview | `/spec-interview my-project` |
 | `/install-toolkit` | Interactive installer - asks preferences then installs | `/install-toolkit [path]` |
+| `/ralph` | Orchestrate Ralph autonomous agent pipeline | `/ralph`, `/ralph status`, `/ralph execute` |
+| `/generate-prd` | Generate PRD for a new feature | `/generate-prd user-dashboard` |
+| `/ralph-convert-prd` | Convert PRD to Ralph prd.json format | `/ralph-convert-prd tasks/prd-feature.md` |
 
 ### Hooks (1)
 
@@ -202,7 +208,7 @@ Pick only what you need:
 # Just git workflow
 cp -r skills/git ~/.claude/skills/
 cp agents/git-ops.md ~/.claude/agents/
-cp commands/{commit,push,pr,ship}.md ~/.claude/commands/
+cp commands/{git-commit,git-push,git-pr,git-ship}.md ~/.claude/commands/
 
 # Just database tools
 cp -r skills/sqlalchemy-postgres ~/.claude/skills/
@@ -233,10 +239,10 @@ cp ~/claude-code-toolkit/agents/git-ops.md .claude/agents/
 ### Git Workflow
 
 ```
-> /commit
+> /git-commit
 # Claude analyzes changes, creates commit with proper message format
 
-> /ship
+> /git-ship
 # Full workflow: commit -> push -> create PR with summary
 ```
 
@@ -268,6 +274,22 @@ cp ~/claude-code-toolkit/agents/git-ops.md .claude/agents/
 
 > Use the debug-like-expert skill to investigate this error
 # Methodical debugging with hypothesis testing
+```
+
+### Ralph Autonomous Agent
+
+```
+> /ralph
+# Full pipeline: spec-interview → PRD → prd.json → autonomous execution
+
+> /ralph status
+# Check current prd.json progress and story completion
+
+> /generate-prd user-dashboard
+# Create PRD for new feature through guided discovery
+
+> /ralph-convert-prd tasks/prd-dashboard.md
+# Convert PRD to atomic user stories for Ralph execution
 ```
 
 ## Customization
@@ -433,6 +455,11 @@ allowed-tools: Read, Edit  # Optional tool restrictions
 2. Add your skill/agent/command/hook
 3. Include documentation in the component
 4. Submit a PR with usage examples
+
+## Acknowledgments
+
+- **[snarktank](https://github.com/snarktank)** - Ralph autonomous agent pattern and PRD-to-stories workflow
+- **[glittercowboy](https://github.com/glittercowboy)** - Inspiration and Claude Code patterns
 
 ## License
 
