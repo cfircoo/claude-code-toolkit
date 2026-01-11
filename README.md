@@ -56,6 +56,7 @@ The installer offers flexible installation options:
 - ✓ **Replaces existing skill folders** (ensures clean updates, no file conflicts)
 - ✓ Copies selected components with detailed logging
 - ✓ Sets up statusline with proper permissions
+- ✓ **Installs damage-control security hooks** (protects .env, credentials, blocks destructive commands)
 - ✓ **Intelligently merges settings.json** (preserves your existing settings)
 - ✓ Automatically backs up `hooks.json` and `settings.json` to `.bak` files
 
@@ -70,6 +71,35 @@ You can also run the platform-specific installer directly:
 # For Linux
 ./install-linux.sh
 ```
+
+### Non-Interactive Installation
+
+Both installers support command-line options for non-interactive use:
+
+```bash
+# Install everything non-interactively
+./install-linux.sh -y
+
+# Install all, skip update check
+./install-linux.sh -y --no-update
+
+# Install all, skip UV installation (for damage-control)
+./install-linux.sh --all --no-uv
+
+# Show help
+./install-linux.sh --help
+```
+
+**Available options:**
+
+| Option | Description |
+|--------|-------------|
+| `-y, --yes, --all` | Auto-yes to all prompts (install everything) |
+| `--no-update` | Skip Claude Code update check |
+| `--no-uv` | Skip UV installation for damage-control hooks |
+| `--select` | Interactive selection mode |
+| `--skip` | Skip component installation |
+| `-h, --help` | Show help message |
 
 ## Manual Installation
 
@@ -94,7 +124,7 @@ cp agents/git-ops.md ~/.claude/agents/
 
 ## What's Included
 
-### Skills (14)
+### Skills (15)
 
 Skills are modular capabilities that provide domain expertise on demand. They live in `~/.claude/skills/`.
 
@@ -104,6 +134,7 @@ Skills are modular capabilities that provide domain expertise on demand. They li
 | **pytest-best-practices** | Expert pytest patterns | Writing tests, fixtures, mocking |
 | **sqlalchemy-postgres** | SQLAlchemy 2.0 + Pydantic + PostgreSQL | Database layers, models, migrations |
 | **debug-like-expert** | Methodical debugging with hypothesis testing | Complex bugs that resist standard fixes |
+| **damage-control** | Security hooks blocking dangerous operations | Protecting .env, credentials, destructive commands |
 | **create-plans** | Hierarchical project planning | Planning projects for solo dev + Claude |
 | **spec-interview** | Interview-driven specification building | Starting new projects, defining requirements |
 | **create-subagents** | Guide to creating custom subagents | Building specialized agents |
@@ -146,13 +177,29 @@ Commands are slash-invoked prompts for common operations. They live in `~/.claud
 | `/generate-prd` | Generate PRD for a new feature | `/generate-prd user-dashboard` |
 | `/ralph-convert-prd` | Convert PRD to Ralph prd.json format | `/ralph-convert-prd tasks/prd-feature.md` |
 
-### Hooks (1)
+### Hooks
 
-Hooks are event-driven automation scripts. Configuration lives in `~/.claude/hooks.json`.
+Hooks are event-driven automation scripts. Configuration lives in `~/.claude/settings.json`.
 
 | Hook | Trigger | Description |
 |------|---------|-------------|
 | **pre-commit-pytest** | Before git commit/push | Runs pytest, blocks if tests fail |
+
+#### Damage Control Hooks
+
+Security hooks that protect against dangerous operations. Installed automatically with the toolkit.
+
+| Hook | Tool | Protection |
+|------|------|------------|
+| **bash-tool-damage-control** | Bash | Blocks `rm -rf`, `git reset --hard`, etc. |
+| **read-tool-damage-control** | Read | Blocks reading `.env`, credentials, SSH keys |
+| **write-tool-damage-control** | Write | Blocks writing to protected paths |
+| **edit-tool-damage-control** | Edit | Blocks editing protected files |
+
+**Protection levels in `patterns.yaml`:**
+- `zeroAccessPaths` - No operations allowed (Read, Write, Edit, Bash all blocked)
+- `readOnlyPaths` - Read allowed, Write/Edit blocked
+- `destructivePatterns` - Dangerous bash commands blocked
 
 ### Extras
 
