@@ -28,7 +28,17 @@ Available components:
    - If missing, ask if they want to install them
 
 3. **Check Claude Code CLI**:
-   - If installed: show version, offer to check for updates
+   - If installed:
+     - Show current version
+     - Check for updates:
+       - **macOS**: `brew update && brew outdated --cask claude-code`
+       - **Linux**: `npm outdated -g @anthropic-ai/claude-code`
+     - If update available:
+       - Ask user if they want to update
+       - If yes, perform update:
+         - **macOS**: `brew upgrade --cask claude-code`
+         - **Linux**: `npm install -g @anthropic-ai/claude-code@latest`
+       - **IMPORTANT**: After update, inform user they MUST restart Claude CLI for changes to take effect
    - If not installed, offer to install:
      - **macOS**: `brew install --cask claude-code` (preferred)
      - **Linux**: `npm install -g @anthropic-ai/claude-code@latest`
@@ -138,6 +148,7 @@ Next: Run `claude` and try /commit, /ship, or /db
 - ALWAYS replace skill folders entirely (rm -rf then cp -r) to avoid stale files
 - If settings.json merge fails, inform user and provide manual instructions
 - Never install without user confirmation
+- If Claude Code CLI is updated, ALWAYS remind user to restart Claude
 - Report any errors clearly
 </constraints>
 
