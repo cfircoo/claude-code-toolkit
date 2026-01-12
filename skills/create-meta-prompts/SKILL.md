@@ -50,9 +50,8 @@ Each prompt gets its own folder in `.prompts/` with its output artifacts, enabli
 </quick_start>
 
 <context>
-Prompts directory: !`[ -d ./.prompts ] && echo "exists" || echo "missing"`
-Existing research/plans: !`find ./.prompts -name "*-research.md" -o -name "*-plan.md" 2>/dev/null | head -10`
-Next prompt number: !`ls -d ./.prompts/*/ 2>/dev/null | wc -l | xargs -I {} expr {} + 1`
+Prompts directory: !`ls -d .prompts 2>/dev/null`
+Existing prompts: !`ls .prompts 2>/dev/null`
 </context>
 
 <automated_workflow>

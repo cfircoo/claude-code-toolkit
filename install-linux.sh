@@ -13,6 +13,65 @@ BLUE='\033[0;34m'
 DIM='\033[2m'
 NC='\033[0m' # No Color
 
+# Default options
+AUTO_YES=false
+SKIP_UPDATE_CHECK=false
+SKIP_UV_INSTALL=false
+INSTALL_MODE=""  # all, select, skip
+
+# Parse command-line arguments
+show_help() {
+    echo "Usage: $0 [OPTIONS]"
+    echo
+    echo "Options:"
+    echo "  -y, --yes           Auto-yes to all prompts (non-interactive)"
+    echo "  --no-update         Skip Claude Code update check"
+    echo "  --no-uv             Skip UV installation for damage-control"
+    echo "  --all               Install all components (same as -y)"
+    echo "  --select            Interactive selection mode"
+    echo "  --skip              Skip component installation"
+    echo "  -h, --help          Show this help message"
+    echo
+    echo "Examples:"
+    echo "  $0 -y               Install everything non-interactively"
+    echo "  $0 --all --no-uv    Install all but skip UV"
+    echo "  $0 --select         Interactive component selection"
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -y|--yes|--all)
+            AUTO_YES=true
+            INSTALL_MODE="1"
+            shift
+            ;;
+        --no-update)
+            SKIP_UPDATE_CHECK=true
+            shift
+            ;;
+        --no-uv)
+            SKIP_UV_INSTALL=true
+            shift
+            ;;
+        --select)
+            INSTALL_MODE="2"
+            shift
+            ;;
+        --skip)
+            INSTALL_MODE="3"
+            shift
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            ;;
+    esac
+done
+
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
@@ -87,16 +146,26 @@ if command -v claude &> /dev/null; then
 
     # Check for updates if npm is available
     if command -v npm &> /dev/null; then
-        echo -e "${BLUE}Check for Claude Code updates? (y/n)${NC}"
-        read -r response
+        if [ "$SKIP_UPDATE_CHECK" = true ]; then
+            response="n"
+        elif [ "$AUTO_YES" = true ]; then
+            response="y"
+        else
+            echo -e "${BLUE}Check for Claude Code updates? (y/n)${NC}"
+            read -r response
+        fi
         if [[ "$response" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}→ Checking for updates...${NC}"
             LATEST=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "unknown")
             CURRENT=$(echo "$CLAUDE_VERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
             if [ "$LATEST" != "unknown" ] && [ "$LATEST" != "$CURRENT" ]; then
                 echo -e "${YELLOW}⚠${NC} Update available: $CURRENT → $LATEST"
-                echo -e "${BLUE}Update Claude Code now? (y/n)${NC}"
-                read -r response
+                if [ "$AUTO_YES" = true ]; then
+                    response="y"
+                else
+                    echo -e "${BLUE}Update Claude Code now? (y/n)${NC}"
+                    read -r response
+                fi
                 if [[ "$response" =~ ^[Yy]$ ]]; then
                     echo -e "${BLUE}→ Updating Claude Code...${NC}"
                     npm install -g @anthropic-ai/claude-code@latest
@@ -112,8 +181,12 @@ else
 
     # Check if npm is available for installation
     if command -v npm &> /dev/null; then
-        echo -e "${BLUE}Install Claude Code CLI via npm? (y/n)${NC}"
-        read -r response
+        if [ "$AUTO_YES" = true ]; then
+            response="y"
+        else
+            echo -e "${BLUE}Install Claude Code CLI via npm? (y/n)${NC}"
+            read -r response
+        fi
         if [[ "$response" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}→ Installing Claude Code...${NC}"
             npm install -g @anthropic-ai/claude-code@latest
@@ -138,8 +211,12 @@ if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
 
     if [ "$PKG_MANAGER" != "none" ]; then
         echo -e "${BLUE}Package manager detected: $PKG_MANAGER${NC}"
-        echo -e "${BLUE}Install missing dependencies? (y/n)${NC}"
-        read -r response
+        if [ "$AUTO_YES" = true ]; then
+            response="y"
+        else
+            echo -e "${BLUE}Install missing dependencies? (y/n)${NC}"
+            read -r response
+        fi
         if [[ "$response" =~ ^[Yy]$ ]]; then
             for dep in "${MISSING_DEPS[@]}"; do
                 echo -e "${BLUE}→ Installing $dep...${NC}"
@@ -152,8 +229,12 @@ if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
     else
         echo -e "${YELLOW}⚠${NC} Please install manually: ${MISSING_DEPS[*]}"
         echo
-        echo -e "${BLUE}Continue without installing dependencies? (y/n)${NC}"
-        read -r response
+        if [ "$AUTO_YES" = true ]; then
+            response="y"
+        else
+            echo -e "${BLUE}Continue without installing dependencies? (y/n)${NC}"
+            read -r response
+        fi
         if [[ ! "$response" =~ ^[Yy]$ ]]; then
             echo "Installation cancelled."
             exit 1
@@ -171,12 +252,21 @@ echo -e "${GREEN}✓${NC} Directories created"
 
 echo
 echo -e "${BLUE}→ Installation options...${NC}"
-echo -e "How would you like to install components?"
-echo -e "  ${GREEN}1${NC}) Install all (recommended)"
-echo -e "  ${GREEN}2${NC}) Select by folder"
-echo -e "  ${GREEN}3${NC}) Skip installation"
-echo -n "Choice [1-3]: "
-read -r install_choice
+if [ -n "$INSTALL_MODE" ]; then
+    install_choice="$INSTALL_MODE"
+    case $install_choice in
+        1) echo -e "Mode: ${GREEN}Install all${NC} (from command line)" ;;
+        2) echo -e "Mode: ${GREEN}Select by folder${NC} (from command line)" ;;
+        3) echo -e "Mode: ${GREEN}Skip installation${NC} (from command line)" ;;
+    esac
+else
+    echo -e "How would you like to install components?"
+    echo -e "  ${GREEN}1${NC}) Install all (recommended)"
+    echo -e "  ${GREEN}2${NC}) Select by folder"
+    echo -e "  ${GREEN}3${NC}) Skip installation"
+    echo -n "Choice [1-3]: "
+    read -r install_choice
+fi
 
 if [[ "$install_choice" == "3" ]]; then
     echo -e "${YELLOW}⚠${NC} Skipping component installation"
@@ -219,7 +309,7 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
                     fi
                     cp -r "$SCRIPT_DIR/skills/$skill" "$CLAUDE_DIR/skills/"
                     echo -e "  ${GREEN}✓${NC} $skill"
-                    ((copied++))
+                    copied=$((copied + 1))
                 fi
             done
             echo -e "${GREEN}✓${NC} Installed $copied of ${#skill_dirs[@]} skills"
@@ -252,7 +342,7 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
                 if [[ "$response" =~ ^[Yy]$ ]]; then
                     cp "$SCRIPT_DIR/agents/$agent" "$CLAUDE_DIR/agents/$agent"
                     echo -e "  ${GREEN}✓${NC} ${agent%.md}"
-                    ((copied++))
+                    copied=$((copied + 1))
                 fi
             done
             echo -e "${GREEN}✓${NC} Installed $copied of ${#agents[@]} agents"
@@ -285,7 +375,7 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
                 if [[ "$response" =~ ^[Yy]$ ]]; then
                     cp "$SCRIPT_DIR/commands/$cmd" "$CLAUDE_DIR/commands/$cmd"
                     echo -e "  ${GREEN}✓${NC} ${cmd%.md}"
-                    ((copied++))
+                    copied=$((copied + 1))
                 fi
             done
             echo -e "${GREEN}✓${NC} Installed $copied of ${#commands[@]} commands"
@@ -300,7 +390,7 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
 
         # Copy hooks.json
         if [ -f "$SCRIPT_DIR/hooks.json" ]; then
-            ((total++))
+            total=$((total + 1))
             local should_copy="n"
             if [ "$mode" == "all" ]; then
                 should_copy="y"
@@ -316,7 +406,7 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
                 fi
                 cp "$SCRIPT_DIR/hooks.json" "$CLAUDE_DIR/hooks.json"
                 echo -e "  ${GREEN}✓${NC} hooks.json"
-                ((copied++))
+                copied=$((copied + 1))
             fi
         fi
 
@@ -341,7 +431,7 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
                             cp "$SCRIPT_DIR/hooks/$hook" "$CLAUDE_DIR/hooks/$hook"
                             chmod +x "$CLAUDE_DIR/hooks/$hook"
                             echo -e "  ${GREEN}✓${NC} ${hook%.sh}"
-                            ((copied++))
+                            copied=$((copied + 1))
                         fi
                     done
                 fi
@@ -362,6 +452,128 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         cp "$SCRIPT_DIR/statusline.sh" "$CLAUDE_DIR/statusline.sh"
         chmod +x "$CLAUDE_DIR/statusline.sh"
         echo -e "${GREEN}✓${NC} Installed statusline.sh"
+    }
+
+    # Function to install damage-control hooks
+    install_damage_control() {
+        local DAMAGE_CONTROL_DIR="$SCRIPT_DIR/skills/damage-control/scripts"
+        local HOOKS_TARGET="$CLAUDE_DIR/hooks/damage-control"
+
+        if [ ! -d "$DAMAGE_CONTROL_DIR" ]; then
+            echo -e "${YELLOW}⚠${NC} Damage control scripts not found"
+            return
+        fi
+
+        # Check for UV runtime
+        if ! command -v uv &> /dev/null; then
+            echo -e "${YELLOW}⚠${NC} UV runtime not found (required for damage-control hooks)"
+            if [ "$SKIP_UV_INSTALL" = true ]; then
+                echo -e "${YELLOW}⚠${NC} Skipping UV installation (--no-uv flag)"
+                return
+            elif [ "$AUTO_YES" = true ]; then
+                response="y"
+            else
+                echo -e "${BLUE}Install UV now? (y/n)${NC}"
+                read -r response
+            fi
+            if [[ "$response" =~ ^[Yy]$ ]]; then
+                echo -e "${BLUE}→ Installing UV...${NC}"
+                curl -LsSf https://astral.sh/uv/install.sh | sh
+                # Source the updated PATH
+                export PATH="$HOME/.local/bin:$PATH"
+                if command -v uv &> /dev/null; then
+                    echo -e "${GREEN}✓${NC} UV installed"
+                else
+                    echo -e "${RED}✗${NC} UV installation failed. Install manually: curl -LsSf https://astral.sh/uv/install.sh | sh"
+                    return
+                fi
+            else
+                echo -e "${YELLOW}⚠${NC} Skipping damage-control (UV required)"
+                return
+            fi
+        else
+            echo -e "${GREEN}✓${NC} UV runtime found"
+        fi
+
+        # Create hooks directory
+        mkdir -p "$HOOKS_TARGET"
+
+        # Copy Python hook scripts
+        cp "$DAMAGE_CONTROL_DIR"/*.py "$HOOKS_TARGET/" 2>/dev/null || true
+        cp "$DAMAGE_CONTROL_DIR"/patterns.yaml "$HOOKS_TARGET/" 2>/dev/null || true
+
+        # Make scripts executable
+        chmod +x "$HOOKS_TARGET"/*.py 2>/dev/null || true
+
+        local script_count=$(find "$HOOKS_TARGET" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
+        echo -e "${GREEN}✓${NC} Installed $script_count damage-control hook scripts"
+
+        # Update settings.json with damage-control hooks
+        if command -v jq &> /dev/null; then
+            local SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+
+            # Create settings.json if it doesn't exist
+            if [ ! -f "$SETTINGS_FILE" ]; then
+                echo '{}' > "$SETTINGS_FILE"
+            fi
+
+            # Backup existing settings
+            cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak" 2>/dev/null
+
+            # Read the settings template
+            local TEMPLATE_FILE="$DAMAGE_CONTROL_DIR/settings-template.json"
+            if [ -f "$TEMPLATE_FILE" ]; then
+                # Merge damage-control hooks into existing settings
+                local temp_file=$(mktemp)
+
+                # Deep merge: combine PreToolUse arrays and permissions
+                jq -s '
+                    .[0] as $existing | .[1] as $template |
+                    (($existing.hooks.PreToolUse // []) + ($template.hooks.PreToolUse // [])) | unique_by(.matcher) as $merged_hooks |
+                    (($existing.permissions.deny // []) + ($template.permissions.deny // [])) | unique as $merged_deny |
+                    (($existing.permissions.ask // []) + ($template.permissions.ask // [])) | unique as $merged_ask |
+                    $existing * $template
+                    | .hooks.PreToolUse = $merged_hooks
+                    | .permissions = {deny: $merged_deny, ask: $merged_ask}
+                ' "$SETTINGS_FILE" "$TEMPLATE_FILE" > "$temp_file" 2>/dev/null
+
+                if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
+                    mv "$temp_file" "$SETTINGS_FILE"
+                    echo -e "${GREEN}✓${NC} Updated settings.json with damage-control hooks"
+                    echo -e "${GREEN}✓${NC} Added permissions (deny/ask rules)"
+                else
+                    rm -f "$temp_file"
+                    echo -e "${YELLOW}⚠${NC} Could not update settings.json - manual merge may be needed"
+                fi
+            fi
+        else
+            echo -e "${YELLOW}⚠${NC} jq not found - settings.json not updated"
+            echo -e "${DIM}   Add damage-control hooks to settings.json manually${NC}"
+        fi
+
+        # Verify installation
+        echo
+        echo -e "${BLUE}→ Verifying installation...${NC}"
+        if [ -f "$HOOKS_TARGET/bash-tool-damage-control.py" ]; then
+            echo -e "${GREEN}✓${NC} bash-tool-damage-control.py"
+        fi
+        if [ -f "$HOOKS_TARGET/edit-tool-damage-control.py" ]; then
+            echo -e "${GREEN}✓${NC} edit-tool-damage-control.py"
+        fi
+        if [ -f "$HOOKS_TARGET/write-tool-damage-control.py" ]; then
+            echo -e "${GREEN}✓${NC} write-tool-damage-control.py"
+        fi
+        if [ -f "$HOOKS_TARGET/patterns.yaml" ]; then
+            echo -e "${GREEN}✓${NC} patterns.yaml"
+        fi
+
+        echo
+        echo -e "${BLUE}Damage Control protects against:${NC}"
+        echo -e "  • Destructive commands (rm -rf, git reset --hard, etc.)"
+        echo -e "  • Sensitive file access (.env, ~/.ssh/, credentials)"
+        echo -e "  • Accidental deletions of important files"
+        echo
+        echo -e "${YELLOW}⚠ IMPORTANT: Restart Claude Code for hooks to take effect${NC}"
     }
 
     # Function to update settings.json by merging toolkit settings
@@ -415,10 +627,10 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         copy_hooks "all"
         echo -e "${BLUE}Statusline:${NC}"
         copy_statusline
+        echo -e "${BLUE}Damage Control (security hooks):${NC}"
+        install_damage_control
         echo -e "${BLUE}Settings:${NC}"
-        echo -n "Merge toolkit settings.json into your settings? (y/n): "
-        read -r response
-        [[ "$response" =~ ^[Yy]$ ]] && copy_settings
+        copy_settings
 
     elif [[ "$install_choice" == "2" ]]; then
         # Select by folder
@@ -455,6 +667,13 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         echo -n "Copy statusline.sh? (y/n): "
         read -r choice
         [[ "$choice" =~ ^[Yy]$ ]] && copy_statusline
+
+        echo
+        echo -e "${BLUE}━━━ Damage Control ━━━${NC}"
+        echo -e "${DIM}Security hooks that block dangerous commands (rm -rf, git reset --hard, etc.)${NC}"
+        echo -n "Install damage-control hooks? (y/n): "
+        read -r choice
+        [[ "$choice" =~ ^[Yy]$ ]] && install_damage_control
 
         echo
         echo -e "${BLUE}━━━ Settings ━━━${NC}"
