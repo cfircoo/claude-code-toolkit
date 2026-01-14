@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if ! echo \"$CLAUDE_USER_PROMPT\" | grep -qiE '(elaborate|explain|detail|show code|example)'; then echo '{\"userPromptPrefix\": \"[STYLE: Be extremely brief. No code blocks, no tables, no bullet lists unless essential. 1-3 sentences max.]\"}'; fi"
+            "command": "[ -f \"$HOME/.claude/.concise-mode\" ] && [ \"$(cat \"$HOME/.claude/.concise-mode\")\" = \"off\" ] && exit 0; if ! echo \"$CLAUDE_USER_PROMPT\" | grep -qiE '(elaborate|explain|detail|show code|example)'; then echo '{\"userPromptPrefix\": \"[STYLE: Be extremely brief. No code blocks, no tables, no bullet lists unless essential. 1-3 sentences max.]\"}'; fi"
           }
         ]
       }

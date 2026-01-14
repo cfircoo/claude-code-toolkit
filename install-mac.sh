@@ -433,171 +433,30 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
 
     # Function to install damage-control hooks
     install_damage_control() {
-        local DAMAGE_CONTROL_DIR="$SCRIPT_DIR/skills/damage-control/scripts"
-        local HOOKS_TARGET="$CLAUDE_DIR/hooks/damage-control"
+        local INSTALL_SCRIPT="$SCRIPT_DIR/hooks/damage-control/install.sh"
 
-        if [ ! -d "$DAMAGE_CONTROL_DIR" ]; then
-            echo -e "${YELLOW}⚠${NC} Damage control scripts not found"
+        if [ ! -f "$INSTALL_SCRIPT" ]; then
+            echo -e "${YELLOW}⚠${NC} Damage control install script not found"
             return
         fi
 
-        # Check for UV runtime
-        if ! command -v uv &> /dev/null; then
-            echo -e "${YELLOW}⚠${NC} UV runtime not found (required for damage-control hooks)"
-            if [ "$SKIP_UV_INSTALL" = true ]; then
-                echo -e "${YELLOW}⚠${NC} Skipping UV installation (--no-uv flag)"
-                return
-            elif [ "$AUTO_YES" = true ]; then
-                response="y"
-            else
-                echo -e "${BLUE}Install UV now? (y/n)${NC}"
-                read -r response
-            fi
-            if [[ "$response" =~ ^[Yy]$ ]]; then
-                echo -e "${BLUE}→ Installing UV...${NC}"
-                curl -LsSf https://astral.sh/uv/install.sh | sh
-                # Source the updated PATH
-                export PATH="$HOME/.local/bin:$PATH"
-                if command -v uv &> /dev/null; then
-                    echo -e "${GREEN}✓${NC} UV installed"
-                else
-                    echo -e "${RED}✗${NC} UV installation failed. Install manually: curl -LsSf https://astral.sh/uv/install.sh | sh"
-                    return
-                fi
-            else
-                echo -e "${YELLOW}⚠${NC} Skipping damage-control (UV required)"
-                return
-            fi
-        else
-            echo -e "${GREEN}✓${NC} UV runtime found"
-        fi
+        local args=""
+        [ "$AUTO_YES" = true ] && args="$args -y"
+        [ "$SKIP_UV_INSTALL" = true ] && args="$args --no-uv"
 
-        # Create hooks directory
-        mkdir -p "$HOOKS_TARGET"
-
-        # Copy Python hook scripts
-        cp "$DAMAGE_CONTROL_DIR"/*.py "$HOOKS_TARGET/" 2>/dev/null || true
-        cp "$DAMAGE_CONTROL_DIR"/patterns.yaml "$HOOKS_TARGET/" 2>/dev/null || true
-
-        # Make scripts executable
-        chmod +x "$HOOKS_TARGET"/*.py 2>/dev/null || true
-
-        local script_count=$(find "$HOOKS_TARGET" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
-        echo -e "${GREEN}✓${NC} Installed $script_count damage-control hook scripts"
-
-        # Update settings.json with damage-control hooks
-        if command -v jq &> /dev/null; then
-            local SETTINGS_FILE="$CLAUDE_DIR/settings.json"
-
-            # Create settings.json if it doesn't exist
-            if [ ! -f "$SETTINGS_FILE" ]; then
-                echo '{}' > "$SETTINGS_FILE"
-            fi
-
-            # Backup existing settings
-            cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak" 2>/dev/null
-
-            # Read the settings template
-            local TEMPLATE_FILE="$DAMAGE_CONTROL_DIR/settings-template.json"
-            if [ -f "$TEMPLATE_FILE" ]; then
-                # Merge damage-control hooks into existing settings
-                local temp_file=$(mktemp)
-
-                # Deep merge: combine PreToolUse arrays and permissions
-                jq -s '
-                    .[0] as $existing | .[1] as $template |
-                    (($existing.hooks.PreToolUse // []) + ($template.hooks.PreToolUse // [])) | unique_by(.matcher) as $merged_hooks |
-                    (($existing.permissions.deny // []) + ($template.permissions.deny // [])) | unique as $merged_deny |
-                    (($existing.permissions.ask // []) + ($template.permissions.ask // [])) | unique as $merged_ask |
-                    $existing * $template
-                    | .hooks.PreToolUse = $merged_hooks
-                    | .permissions = {deny: $merged_deny, ask: $merged_ask}
-                ' "$SETTINGS_FILE" "$TEMPLATE_FILE" > "$temp_file" 2>/dev/null
-
-                if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
-                    mv "$temp_file" "$SETTINGS_FILE"
-                    echo -e "${GREEN}✓${NC} Updated settings.json with damage-control hooks"
-                    echo -e "${GREEN}✓${NC} Added permissions (deny/ask rules)"
-                else
-                    rm -f "$temp_file"
-                    echo -e "${YELLOW}⚠${NC} Could not update settings.json - manual merge may be needed"
-                fi
-            fi
-        else
-            echo -e "${YELLOW}⚠${NC} jq not found - settings.json not updated"
-            echo -e "${DIM}   Add damage-control hooks to settings.json manually${NC}"
-        fi
-
-        # Verify installation
-        echo
-        echo -e "${BLUE}→ Verifying installation...${NC}"
-        if [ -f "$HOOKS_TARGET/bash-tool-damage-control.py" ]; then
-            echo -e "${GREEN}✓${NC} bash-tool-damage-control.py"
-        fi
-        if [ -f "$HOOKS_TARGET/edit-tool-damage-control.py" ]; then
-            echo -e "${GREEN}✓${NC} edit-tool-damage-control.py"
-        fi
-        if [ -f "$HOOKS_TARGET/write-tool-damage-control.py" ]; then
-            echo -e "${GREEN}✓${NC} write-tool-damage-control.py"
-        fi
-        if [ -f "$HOOKS_TARGET/patterns.yaml" ]; then
-            echo -e "${GREEN}✓${NC} patterns.yaml"
-        fi
-
-        echo
-        echo -e "${BLUE}Damage Control protects against:${NC}"
-        echo -e "  • Destructive commands (rm -rf, git reset --hard, etc.)"
-        echo -e "  • Sensitive file access (.env, ~/.ssh/, credentials)"
-        echo -e "  • Accidental deletions of important files"
-        echo
-        echo -e "${YELLOW}⚠ IMPORTANT: Restart Claude Code for hooks to take effect${NC}"
+        bash "$INSTALL_SCRIPT" $args
     }
 
     # Function to install concise-mode hook
     install_concise_mode() {
-        local CONCISE_MODE_DIR="$SCRIPT_DIR/hooks/concise-mode"
-        local TEMPLATE_FILE="$CONCISE_MODE_DIR/settings-template.json"
+        local INSTALL_SCRIPT="$SCRIPT_DIR/hooks/concise-mode/install.sh"
 
-        if [ ! -f "$TEMPLATE_FILE" ]; then
-            echo -e "${YELLOW}⚠${NC} Concise mode template not found"
+        if [ ! -f "$INSTALL_SCRIPT" ]; then
+            echo -e "${YELLOW}⚠${NC} Concise mode install script not found"
             return
         fi
 
-        # Check for jq
-        if ! command -v jq &> /dev/null; then
-            echo -e "${YELLOW}⚠${NC} jq not found - cannot install concise-mode hook"
-            return
-        fi
-
-        local SETTINGS_FILE="$CLAUDE_DIR/settings.json"
-
-        # Create settings.json if it doesn't exist
-        if [ ! -f "$SETTINGS_FILE" ]; then
-            echo '{}' > "$SETTINGS_FILE"
-        fi
-
-        # Backup existing settings
-        cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak" 2>/dev/null
-
-        # Merge concise-mode hook into existing settings
-        local temp_file=$(mktemp)
-
-        jq -s '
-            .[0] as $existing | .[1] as $template |
-            (($existing.hooks.UserPromptSubmit // []) + ($template.hooks.UserPromptSubmit // [])) | unique as $merged_hooks |
-            $existing * $template
-            | .hooks.UserPromptSubmit = $merged_hooks
-        ' "$SETTINGS_FILE" "$TEMPLATE_FILE" > "$temp_file" 2>/dev/null
-
-        if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
-            mv "$temp_file" "$SETTINGS_FILE"
-            echo -e "${GREEN}✓${NC} Installed concise-mode hook"
-        else
-            rm -f "$temp_file"
-            echo -e "${YELLOW}⚠${NC} Could not install concise-mode hook"
-        fi
-
-        echo -e "${DIM}   Bypass with: elaborate, explain, detail, show code, example${NC}"
+        bash "$INSTALL_SCRIPT"
     }
 
     # Function to update settings.json by merging toolkit settings

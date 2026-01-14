@@ -21,6 +21,21 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
     BRANCH=$(git branch --show-current 2>/dev/null)
 fi
 
+# Check if concise-mode is installed and active
+PROMPT_MODE=""
+SETTINGS_FILE="$HOME/.claude/settings.json"
+STATE_FILE="$HOME/.claude/.concise-mode"
+if [ -f "$SETTINGS_FILE" ]; then
+    if grep -q "UserPromptSubmit" "$SETTINGS_FILE" 2>/dev/null && grep -q "STYLE.*brief" "$SETTINGS_FILE" 2>/dev/null; then
+        # Check if disabled via state file
+        if [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE")" = "off" ]; then
+            PROMPT_MODE="default"
+        else
+            PROMPT_MODE="concise"
+        fi
+    fi
+fi
+
 # Colors
 GREEN=$'\033[38;5;158m'
 YELLOW=$'\033[38;5;215m'
@@ -127,10 +142,13 @@ fi
 
 # Build status line
 LINE1=""
+MODE_INDICATOR=""
+[ -n "$PROMPT_MODE" ] && MODE_INDICATOR="  💬 $PROMPT_MODE"
+
 if [ -n "$BRANCH" ]; then
-    LINE1=$(printf "🤖 %s  📁 %s  🌿 %s%s" "$MODEL" "$DIR_NAME" "$BRANCH" "$CTX")
+    LINE1=$(printf "🤖 %s  📁 %s  🌿 %s%s%s" "$MODEL" "$DIR_NAME" "$BRANCH" "$MODE_INDICATOR" "$CTX")
 else
-    LINE1=$(printf "🤖 %s  📁 %s%s" "$MODEL" "$DIR_NAME" "$CTX")
+    LINE1=$(printf "🤖 %s  📁 %s%s%s" "$MODEL" "$DIR_NAME" "$MODE_INDICATOR" "$CTX")
 fi
 
 if [ -n "$USER_PROMPT" ]; then

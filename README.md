@@ -171,6 +171,7 @@ Commands are slash-invoked prompts for common operations. They live in `~/.claud
 | `/git-pr` | Create a pull request | `/git-pr` |
 | `/git-ship` | Full workflow: commit + push + PR | `/git-ship` |
 | `/db` | Database operations | `/db setup`, `/db model User`, `/db migration` |
+| `/concise` | Toggle concise response mode | `/concise on`, `/concise off`, `/concise` |
 | `/spec-interview` | Build project specification through interview | `/spec-interview my-project` |
 | `/install-toolkit` | Interactive installer - asks preferences then installs | `/install-toolkit [path]` |
 | `/ralph` | Orchestrate Ralph autonomous agent pipeline | `/ralph`, `/ralph status`, `/ralph execute` |
@@ -184,6 +185,22 @@ Hooks are event-driven automation scripts. Configuration lives in `~/.claude/set
 | Hook | Trigger | Description |
 |------|---------|-------------|
 | **pre-commit-pytest** | Before git commit/push | Runs pytest, blocks if tests fail |
+
+#### Concise Mode Hook
+
+Forces brief responses without code blocks, tables, or verbose formatting. Installed automatically with the toolkit.
+
+| Feature | Description |
+|---------|-------------|
+| **Default behavior** | 1-3 sentences max, no code blocks or tables |
+| **Bypass words** | `elaborate`, `explain`, `detail`, `show code`, `example` |
+| **Toggle command** | `/concise [on\|off\|status]` |
+| **Statusline indicator** | Shows `💬 concise` or `💬 default` |
+
+**Standalone installation:**
+```bash
+./hooks/concise-mode/install.sh
+```
 
 #### Damage Control Hooks
 
