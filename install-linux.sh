@@ -576,6 +576,53 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         echo -e "${YELLOW}⚠ IMPORTANT: Restart Claude Code for hooks to take effect${NC}"
     }
 
+    # Function to install concise-mode hook
+    install_concise_mode() {
+        local CONCISE_MODE_DIR="$SCRIPT_DIR/hooks/concise-mode"
+        local TEMPLATE_FILE="$CONCISE_MODE_DIR/settings-template.json"
+
+        if [ ! -f "$TEMPLATE_FILE" ]; then
+            echo -e "${YELLOW}⚠${NC} Concise mode template not found"
+            return
+        fi
+
+        # Check for jq
+        if ! command -v jq &> /dev/null; then
+            echo -e "${YELLOW}⚠${NC} jq not found - cannot install concise-mode hook"
+            return
+        fi
+
+        local SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+
+        # Create settings.json if it doesn't exist
+        if [ ! -f "$SETTINGS_FILE" ]; then
+            echo '{}' > "$SETTINGS_FILE"
+        fi
+
+        # Backup existing settings
+        cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak" 2>/dev/null
+
+        # Merge concise-mode hook into existing settings
+        local temp_file=$(mktemp)
+
+        jq -s '
+            .[0] as $existing | .[1] as $template |
+            (($existing.hooks.UserPromptSubmit // []) + ($template.hooks.UserPromptSubmit // [])) | unique as $merged_hooks |
+            $existing * $template
+            | .hooks.UserPromptSubmit = $merged_hooks
+        ' "$SETTINGS_FILE" "$TEMPLATE_FILE" > "$temp_file" 2>/dev/null
+
+        if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
+            mv "$temp_file" "$SETTINGS_FILE"
+            echo -e "${GREEN}✓${NC} Installed concise-mode hook"
+        else
+            rm -f "$temp_file"
+            echo -e "${YELLOW}⚠${NC} Could not install concise-mode hook"
+        fi
+
+        echo -e "${DIM}   Bypass with: elaborate, explain, detail, show code, example${NC}"
+    }
+
     # Function to update settings.json by merging toolkit settings
     copy_settings() {
         # Check if jq is available
@@ -629,6 +676,8 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         copy_statusline
         echo -e "${BLUE}Damage Control (security hooks):${NC}"
         install_damage_control
+        echo -e "${BLUE}Concise Mode (brief responses):${NC}"
+        install_concise_mode
         echo -e "${BLUE}Settings:${NC}"
         copy_settings
 
@@ -674,6 +723,13 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         echo -n "Install damage-control hooks? (y/n): "
         read -r choice
         [[ "$choice" =~ ^[Yy]$ ]] && install_damage_control
+
+        echo
+        echo -e "${BLUE}━━━ Concise Mode ━━━${NC}"
+        echo -e "${DIM}Forces brief responses without code blocks or tables (bypass: elaborate, explain)${NC}"
+        echo -n "Install concise-mode hook? (y/n): "
+        read -r choice
+        [[ "$choice" =~ ^[Yy]$ ]] && install_concise_mode
 
         echo
         echo -e "${BLUE}━━━ Settings ━━━${NC}"
