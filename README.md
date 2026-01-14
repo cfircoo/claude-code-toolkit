@@ -57,6 +57,7 @@ The installer offers flexible installation options:
 - ✓ Copies selected components with detailed logging
 - ✓ Sets up statusline with proper permissions
 - ✓ **Installs damage-control security hooks** (protects .env, credentials, blocks destructive commands)
+- ✓ **Installs concise-mode hook** (brief responses, toggleable with `/concise`)
 - ✓ **Intelligently merges settings.json** (preserves your existing settings)
 - ✓ Automatically backs up `hooks.json` and `settings.json` to `.bak` files
 
@@ -160,7 +161,7 @@ Agents are specialized Claude instances that run autonomously in isolated contex
 | **fullstack-ui-designer** | Creates distinctive UI components | Frontend component design |
 | **fullstack-qa-debugger** | Validates integrations and catches errors | Testing and debugging frontends |
 
-### Commands (11)
+### Commands (12)
 
 Commands are slash-invoked prompts for common operations. They live in `~/.claude/commands/`.
 
