@@ -507,7 +507,7 @@ allowed-tools: Read, Edit  # Optional tool restrictions
 
 - **[snarktank](https://github.com/snarktank)** - Ralph autonomous agent pattern and PRD-to-stories workflow
 - **[glittercowboy](https://github.com/glittercowboy)** - Inspiration and Claude Code patterns
-
+- **[https://github.com/disler]** - Help with damage control
 ## License
 
 MIT - Use freely, modify as needed, share with others.
