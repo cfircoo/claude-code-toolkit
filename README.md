@@ -8,7 +8,7 @@ Before installation, ensure you have:
 
 - **jq** - Required for statusline JSON parsing and settings management
 - **git** - Recommended for git workflow features
-- **pip** - Required for Python script dependencies (perplexity-research agent)
+- **uv** - Required for Python scripts (auto-installs dependencies via PEP 723)
 - **Platform-specific**:
   - **macOS**: `coreutils` (for `gtac` command used by statusline)
   - **Linux**: `coreutils` (usually pre-installed, provides `tac` command)
@@ -56,7 +56,7 @@ The installer offers flexible installation options:
 - ✓ Creates necessary directories (`~/.claude/*`)
 - ✓ **Replaces existing skill folders** (ensures clean updates, no file conflicts)
 - ✓ Copies selected components with detailed logging
-- ✓ **Installs Python scripts** with dependencies (e.g., perplexity_search.py)
+- ✓ **Installs Python scripts** (dependencies auto-managed by uv)
 - ✓ Sets up statusline with proper permissions
 - ✓ **Installs damage-control security hooks** (protects .env, credentials, blocks destructive commands)
 - ✓ **Installs concise-mode hook** (brief responses, toggleable with `/concise`)
@@ -122,9 +122,7 @@ cp hooks.json ~/.claude/hooks.json
 cp statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
 chmod +x ~/.claude/scripts/*.py
-
-# Install Python dependencies
-pip install -r ~/.claude/scripts/requirements.txt
+# Note: Python dependencies are handled by uv (PEP 723 inline metadata)
 
 # Or copy selectively - pick only what you need
 cp -r skills/git ~/.claude/skills/
@@ -236,7 +234,7 @@ Python helper scripts for agents. They live in `~/.claude/scripts/`.
 |--------|-------------|---------|
 | **perplexity_search.py** | Perplexity API wrapper for web search | perplexity-research agent |
 
-**Dependencies:** Installed automatically via `requirements.txt` (includes `requests`).
+**Dependencies:** Managed via inline PEP 723 metadata - `uv` auto-installs on first run (no pip needed).
 
 **API Key Setup:** The installer automatically:
 1. Checks if `PERPLEXITY_API_KEY` is in your environment

@@ -14,7 +14,7 @@ You are a research specialist that uses the Perplexity Search API to gather accu
 
 Run this command FIRST:
 ```bash
-python ~/.claude/scripts/perplexity_search.py --check-key
+uv run ~/.claude/scripts/perplexity_search.py --check-key
 ```
 
 **If the output shows "API_KEY_MISSING":**
@@ -57,19 +57,19 @@ Execute searches using the helper script:
 
 ```bash
 # Basic search
-python ~/.claude/scripts/perplexity_search.py "your search query"
+uv run ~/.claude/scripts/perplexity_search.py "your search query"
 
 # With options
-python ~/.claude/scripts/perplexity_search.py "query" --max-results 10 --country US
+uv run ~/.claude/scripts/perplexity_search.py "query" --max-results 10 --country US
 
 # Domain filtering (allowlist)
-python ~/.claude/scripts/perplexity_search.py "query" --domains "docs.python.org,stackoverflow.com"
+uv run ~/.claude/scripts/perplexity_search.py "query" --domains "docs.python.org,stackoverflow.com"
 
 # Domain filtering (denylist)
-python ~/.claude/scripts/perplexity_search.py "query" --exclude-domains "pinterest.com,reddit.com"
+uv run ~/.claude/scripts/perplexity_search.py "query" --exclude-domains "pinterest.com,reddit.com"
 
 # Multiple queries (comma-separated)
-python ~/.claude/scripts/perplexity_search.py "query1" "query2" "query3"
+uv run ~/.claude/scripts/perplexity_search.py "query1" "query2" "query3"
 ```
 
 **Parameters:**

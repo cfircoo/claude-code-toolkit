@@ -223,7 +223,7 @@ echo
 echo -e "${BLUE}→ Creating directories...${NC}"
 
 # Create directories
-mkdir -p "$CLAUDE_DIR"/{skills,agents,commands,hooks}
+mkdir -p "$CLAUDE_DIR"/{skills,agents,commands,hooks,scripts}
 
 echo -e "${GREEN}✓${NC} Directories created"
 
@@ -431,6 +431,45 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         echo -e "${GREEN}✓${NC} Installed statusline.sh"
     }
 
+    # Function to copy scripts
+    copy_scripts() {
+        local mode="$1"
+        if [ ! -d "$SCRIPT_DIR/scripts" ]; then
+            echo -e "${YELLOW}⚠${NC} No scripts directory found"
+            return
+        fi
+
+        if [ "$mode" == "all" ]; then
+            cp "$SCRIPT_DIR/scripts/"*.py "$CLAUDE_DIR/scripts/" 2>/dev/null || true
+            chmod +x "$CLAUDE_DIR/scripts/"*.py 2>/dev/null || true
+            SCRIPT_COUNT=$(find "$SCRIPT_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
+            echo -e "${GREEN}✓${NC} Installed $SCRIPT_COUNT scripts"
+        else
+            local scripts=($(find "$SCRIPT_DIR/scripts" -name "*.py" -exec basename {} \; 2>/dev/null | sort))
+            if [ ${#scripts[@]} -eq 0 ]; then
+                echo -e "${YELLOW}⚠${NC} No scripts found"
+                return
+            fi
+            echo -e "${DIM}Found ${#scripts[@]} scripts: ${scripts[*]%.py}${NC}"
+            local copied=0
+            for script in "${scripts[@]}"; do
+                echo -n "  Copy ${script%.py}? (y/n): "
+                read -r response
+                if [[ "$response" =~ ^[Yy]$ ]]; then
+                    cp "$SCRIPT_DIR/scripts/$script" "$CLAUDE_DIR/scripts/$script"
+                    chmod +x "$CLAUDE_DIR/scripts/$script"
+                    echo -e "  ${GREEN}✓${NC} ${script%.py}"
+                    copied=$((copied + 1))
+                fi
+            done
+            echo -e "${GREEN}✓${NC} Installed $copied of ${#scripts[@]} scripts"
+        fi
+
+        # Note: Scripts use inline uv dependencies (PEP 723)
+        # No pip install needed - uv handles deps automatically
+        echo -e "${DIM}   Scripts use uv for dependencies (auto-installed on first run)${NC}"
+    }
+
     # Function to install damage-control hooks
     install_damage_control() {
         local INSTALL_SCRIPT="$SCRIPT_DIR/hooks/damage-control/install.sh"
@@ -495,6 +534,91 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         fi
     }
 
+    # Function to configure Perplexity API key
+    configure_perplexity_key() {
+        # Check if jq is available
+        if ! command -v jq &> /dev/null; then
+            echo -e "${YELLOW}⚠${NC} jq not found - cannot configure API key"
+            return
+        fi
+
+        # Check if settings.json exists
+        if [ ! -f "$CLAUDE_DIR/settings.json" ]; then
+            echo '{}' > "$CLAUDE_DIR/settings.json"
+        fi
+
+        # Check if key already exists in settings.json
+        local existing_key=$(jq -r '.env.PERPLEXITY_API_KEY // empty' "$CLAUDE_DIR/settings.json" 2>/dev/null)
+        if [ -n "$existing_key" ]; then
+            echo -e "${GREEN}✓${NC} Perplexity API key already configured in settings.json"
+            return
+        fi
+
+        # Check if key exists in environment
+        local found_key="${PERPLEXITY_API_KEY:-}"
+        local key_source="environment"
+
+        # If not in environment, search shell config files
+        if [ -z "$found_key" ]; then
+            local shell_configs=("$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile")
+            for config_file in "${shell_configs[@]}"; do
+                if [ -f "$config_file" ]; then
+                    # Extract key value from lines like: PERPLEXITY_API_KEY=xxx or export PERPLEXITY_API_KEY=xxx
+                    local extracted=$(grep "PERPLEXITY_API_KEY=" "$config_file" 2>/dev/null | head -1 | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d ' ')
+                    if [ -n "$extracted" ]; then
+                        found_key="$extracted"
+                        key_source="$config_file"
+                        break
+                    fi
+                fi
+            done
+        fi
+
+        # Function to add key to settings.json
+        add_key_to_settings() {
+            local key="$1"
+            local temp_file=$(mktemp)
+            jq --arg key "$key" '.env.PERPLEXITY_API_KEY = $key' "$CLAUDE_DIR/settings.json" > "$temp_file"
+            if [ $? -eq 0 ]; then
+                mv "$temp_file" "$CLAUDE_DIR/settings.json"
+                echo -e "${GREEN}✓${NC} Added Perplexity API key to settings.json"
+                return 0
+            else
+                rm -f "$temp_file"
+                echo -e "${RED}✗${NC} Failed to update settings.json"
+                return 1
+            fi
+        }
+
+        if [ -n "$found_key" ]; then
+            echo -e "${BLUE}ℹ${NC} Found PERPLEXITY_API_KEY in $key_source"
+            if [ "$AUTO_YES" = true ]; then
+                add_key_to_settings "$found_key"
+            else
+                echo -n "  Copy to settings.json? (y/n): "
+                read -r response
+                if [[ "$response" =~ ^[Yy]$ ]]; then
+                    add_key_to_settings "$found_key"
+                fi
+            fi
+        else
+            echo -e "${YELLOW}⚠${NC} PERPLEXITY_API_KEY not found"
+            echo -e "${DIM}   The perplexity-research agent requires an API key.${NC}"
+            echo -e "${DIM}   Get one at: https://www.perplexity.ai/settings/api${NC}"
+            if [ "$AUTO_YES" = true ]; then
+                echo -e "${DIM}   Skipping (auto mode) - configure later in ~/.claude/settings.json${NC}"
+                return
+            fi
+            echo -n "  Enter Perplexity API key (or press Enter to skip): "
+            read -r user_key
+            if [ -n "$user_key" ]; then
+                add_key_to_settings "$user_key"
+            else
+                echo -e "${DIM}   Skipped - configure later in ~/.claude/settings.json${NC}"
+            fi
+        fi
+    }
+
     echo
     echo -e "${BLUE}→ Installing toolkit components...${NC}"
 
@@ -508,6 +632,8 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         copy_commands "all"
         echo -e "${BLUE}Hooks:${NC}"
         copy_hooks "all"
+        echo -e "${BLUE}Scripts:${NC}"
+        copy_scripts "all"
         echo -e "${BLUE}Statusline:${NC}"
         copy_statusline
         echo -e "${BLUE}Damage Control (security hooks):${NC}"
@@ -516,6 +642,8 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         install_concise_mode
         echo -e "${BLUE}Settings:${NC}"
         copy_settings
+        echo -e "${BLUE}Perplexity API Key:${NC}"
+        configure_perplexity_key
 
     elif [[ "$install_choice" == "2" ]]; then
         # Select by folder
@@ -548,6 +676,14 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         [[ "$choice" =~ ^[Oo]$ ]] && copy_hooks "one-by-one"
 
         echo
+        echo -e "${BLUE}━━━ Scripts ━━━${NC}"
+        echo -e "${DIM}Helper scripts for agents (e.g., Perplexity API)${NC}"
+        echo -n "Copy (${GREEN}a${NC})ll / (${GREEN}o${NC})ne-by-one / (${GREEN}s${NC})kip? "
+        read -r choice
+        [[ "$choice" =~ ^[Aa]$ ]] && copy_scripts "all"
+        [[ "$choice" =~ ^[Oo]$ ]] && copy_scripts "one-by-one"
+
+        echo
         echo -e "${BLUE}━━━ Statusline ━━━${NC}"
         echo -n "Copy statusline.sh? (y/n): "
         read -r choice
@@ -572,6 +708,13 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         echo -n "Merge toolkit settings.json into your settings? (y/n): "
         read -r choice
         [[ "$choice" =~ ^[Yy]$ ]] && copy_settings
+
+        echo
+        echo -e "${BLUE}━━━ Perplexity API Key ━━━${NC}"
+        echo -e "${DIM}Required for perplexity-research agent (web search)${NC}"
+        echo -n "Configure Perplexity API key? (y/n): "
+        read -r choice
+        [[ "$choice" =~ ^[Yy]$ ]] && configure_perplexity_key
     fi
 else
     echo -e "${RED}✗${NC} Invalid choice. Exiting."

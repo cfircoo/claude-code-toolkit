@@ -488,20 +488,9 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
             echo -e "${GREEN}✓${NC} Installed $copied of ${#scripts[@]} scripts"
         fi
 
-        # Install Python dependencies if requirements.txt exists
-        if [ -f "$SCRIPT_DIR/scripts/requirements.txt" ]; then
-            cp "$SCRIPT_DIR/scripts/requirements.txt" "$CLAUDE_DIR/scripts/"
-            echo -e "${BLUE}→ Installing Python dependencies...${NC}"
-            if command -v pip3 &> /dev/null; then
-                pip3 install -q -r "$CLAUDE_DIR/scripts/requirements.txt" 2>/dev/null
-                echo -e "${GREEN}✓${NC} Python dependencies installed"
-            elif command -v pip &> /dev/null; then
-                pip install -q -r "$CLAUDE_DIR/scripts/requirements.txt" 2>/dev/null
-                echo -e "${GREEN}✓${NC} Python dependencies installed"
-            else
-                echo -e "${YELLOW}⚠${NC} pip not found - install manually: pip install -r ~/.claude/scripts/requirements.txt"
-            fi
-        fi
+        # Note: Scripts use inline uv dependencies (PEP 723)
+        # No pip install needed - uv handles deps automatically
+        echo -e "${DIM}   Scripts use uv for dependencies (auto-installed on first run)${NC}"
     }
 
     # Function to install damage-control hooks

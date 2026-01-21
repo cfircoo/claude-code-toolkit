@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "requests>=2.28.0",
+# ]
+# ///
 """
 Perplexity Search API helper script for Claude Code research agent.
 
 Usage:
-    python perplexity_search.py "query" [options]
-    python perplexity_search.py "query1" "query2" "query3"  # Multi-query
+    uv run ~/.claude/scripts/perplexity_search.py "query" [options]
+    uv run ~/.claude/scripts/perplexity_search.py "query1" "query2" "query3"
 
 Options:
     --check-key           Check if API key is set (returns API_KEY_OK or API_KEY_MISSING)
@@ -37,11 +43,7 @@ if "--check-key" in sys.argv:
         print("API_KEY_MISSING")
         sys.exit(1)
 
-try:
-    import requests
-except ImportError:
-    print("Error: requests library required. Install with: pip install requests")
-    sys.exit(1)
+import requests
 
 
 def search_perplexity(
