@@ -92,17 +92,22 @@ What would you like to do?
 |------|---------|
 | SPEC.md | Comprehensive requirements from spec-interview |
 | tasks/prd-*.md | Product Requirements Document |
-| prd.json | Atomic user stories for Ralph |
-| progress.txt | Learnings between iterations |
-| ~/.claude/ralph.sh | Ralph execution script |
+| prd.json | Atomic user stories for Ralph (in project root) |
+| progress.txt | Learnings between iterations (in project root) |
+| scripts/ralph.sh | Ralph execution script (in this skill folder) |
+| scripts/prompt.md | Iteration prompt template |
 
 **Commands:**
 ```bash
-# Run Ralph (default 10 iterations)
-~/.claude/ralph.sh
+# Run Ralph from your project directory
+# (assumes toolkit is at ~/projects/claude-code-toolkit)
+~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh
+
+# Or create an alias in ~/.bashrc:
+alias ralph='~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh'
 
 # Run with custom iteration limit
-~/.claude/ralph.sh 5
+ralph 5
 
 # Check story status
 cat prd.json | jq '.userStories[] | {id, title, passes}'

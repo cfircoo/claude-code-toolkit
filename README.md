@@ -6,8 +6,9 @@ A curated collection of skills, agents, commands, and hooks to supercharge your 
 
 Before installation, ensure you have:
 
-- **jq** - Required for statusline JSON parsing
+- **jq** - Required for statusline JSON parsing and settings management
 - **git** - Recommended for git workflow features
+- **pip** - Required for Python script dependencies (perplexity-research agent)
 - **Platform-specific**:
   - **macOS**: `coreutils` (for `gtac` command used by statusline)
   - **Linux**: `coreutils` (usually pre-installed, provides `tac` command)
@@ -50,15 +51,17 @@ The installer offers flexible installation options:
 
 ### What the Installer Does
 
-- ✓ Checks for required dependencies (jq, git, coreutils)
+- ✓ Checks for required dependencies (jq, git, coreutils, pip)
 - ✓ Offers to install missing packages via package manager
 - ✓ Creates necessary directories (`~/.claude/*`)
 - ✓ **Replaces existing skill folders** (ensures clean updates, no file conflicts)
 - ✓ Copies selected components with detailed logging
+- ✓ **Installs Python scripts** with dependencies (e.g., perplexity_search.py)
 - ✓ Sets up statusline with proper permissions
 - ✓ **Installs damage-control security hooks** (protects .env, credentials, blocks destructive commands)
 - ✓ **Installs concise-mode hook** (brief responses, toggleable with `/concise`)
 - ✓ **Intelligently merges settings.json** (preserves your existing settings)
+- ✓ **Configures Perplexity API key** (searches environment and shell configs, or prompts for key)
 - ✓ Automatically backs up `hooks.json` and `settings.json` to `.bak` files
 
 ### Platform-Specific Installers
@@ -108,15 +111,20 @@ If you prefer manual installation or want selective components:
 
 ```bash
 # Create directories
-mkdir -p ~/.claude/{skills,agents,commands,hooks}
+mkdir -p ~/.claude/{skills,agents,commands,hooks,scripts}
 
 # Copy everything
 cp -r skills/* ~/.claude/skills/
 cp -r agents/* ~/.claude/agents/
 cp -r commands/* ~/.claude/commands/
+cp -r scripts/* ~/.claude/scripts/
 cp hooks.json ~/.claude/hooks.json
 cp statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
+chmod +x ~/.claude/scripts/*.py
+
+# Install Python dependencies
+pip install -r ~/.claude/scripts/requirements.txt
 
 # Or copy selectively - pick only what you need
 cp -r skills/git ~/.claude/skills/
@@ -147,7 +155,7 @@ Skills are modular capabilities that provide domain expertise on demand. They li
 | **generate-prd** | Creates PRDs through guided discovery | Defining feature requirements |
 | **ralph-convert-prd** | Converts PRDs to atomic user stories | Preparing PRDs for Ralph execution |
 
-### Agents (7)
+### Agents (8)
 
 Agents are specialized Claude instances that run autonomously in isolated contexts. They live in `~/.claude/agents/`.
 
@@ -156,6 +164,7 @@ Agents are specialized Claude instances that run autonomously in isolated contex
 | **git-ops** | Commits, pushes, and creates PRs safely | "commit my changes", "create a PR" |
 | **db-expert** | SQLAlchemy 2.0 database implementation | Database-related tasks |
 | **pytest-writer** | Writes high-quality pytest tests | "write tests for...", "add test coverage" |
+| **perplexity-research** | Web research via Perplexity API | "research...", "find documentation", "what is..." |
 | **fullstack-manager** | Orchestrates frontend builds from APIs | Building frontends from backend APIs |
 | **fullstack-api-specialist** | Maps API endpoints and schemas | API discovery and documentation |
 | **fullstack-ui-designer** | Creates distinctive UI components | Frontend component design |
@@ -219,12 +228,39 @@ Security hooks that protect against dangerous operations. Installed automaticall
 - `readOnlyPaths` - Read allowed, Write/Edit blocked
 - `destructivePatterns` - Dangerous bash commands blocked
 
+### Scripts
+
+Python helper scripts for agents. They live in `~/.claude/scripts/`.
+
+| Script | Description | Used By |
+|--------|-------------|---------|
+| **perplexity_search.py** | Perplexity API wrapper for web search | perplexity-research agent |
+
+**Dependencies:** Installed automatically via `requirements.txt` (includes `requests`).
+
+**API Key Setup:** The installer automatically:
+1. Checks if `PERPLEXITY_API_KEY` is in your environment
+2. Searches shell config files (`.bashrc`, `.zshrc`, `.profile`)
+3. Prompts for the key if not found
+4. Stores it in `~/.claude/settings.json` under `env.PERPLEXITY_API_KEY`
+
+Get your API key at: https://www.perplexity.ai/settings/api
+
+### Settings
+
+The toolkit's `settings.json` includes these configurations (merged with your existing settings):
+
+| Setting | Description |
+|---------|-------------|
+| **statusLine** | Terminal status bar showing model, git branch, context usage |
+| **env.ENABLE_TOOL_SEARCH** | Enables MCP lazy loading - tools load on-demand instead of all at once, saving context tokens |
+| **env.PERPLEXITY_API_KEY** | API key for perplexity-research agent (configured during install) |
+
 ### Extras
 
 | File | Description |
 |------|-------------|
 | **statusline.sh** | Cross-platform terminal status line (macOS/Linux) showing model, directory, git branch, context usage with visual progress bar, and last user prompt. Automatically detects platform and uses `gtac` (macOS) or `tac` (Linux). |
-| **settings.json** | Example settings with statusLine (including `padding: 0`) and Playwright plugin enabled. Automatically merged with your existing settings during installation. |
 
 ## Installation Options
 
@@ -339,6 +375,16 @@ cp ~/claude-code-toolkit/agents/git-ops.md .claude/agents/
 
 > Use the debug-like-expert skill to investigate this error
 # Methodical debugging with hypothesis testing
+```
+
+### Web Research
+
+```
+> Research the latest features in Next.js 15
+# perplexity-research agent searches web, synthesizes findings with sources
+
+> Find documentation on SQLAlchemy 2.0 async sessions
+# Returns structured report with citations
 ```
 
 ### Ralph Autonomous Agent
