@@ -120,6 +120,7 @@ Static checks (typecheck) are always included as baseline. Runtime validation is
       "maxAttempts": 3,
       "notes": "",
       "blockedBy": [],
+      "docsToUpdate": ["README.md"],
       "completedAt": null,
       "lastAttemptLog": ""
     }
@@ -140,6 +141,7 @@ Static checks (typecheck) are always included as baseline. Runtime validation is
 - `maxAttempts`: Default `3` (increase for complex stories)
 - `notes`: Empty string initially
 - `blockedBy`: Array of story IDs that must be `"done"` first
+- `docsToUpdate`: Array of file paths to documentation that must be updated when story is done (e.g., `"README.md"`, `"docs/api.md"`, `"CHANGELOG.md"`)
 - `completedAt`: Always `null` initially
 - `lastAttemptLog`: Empty string initially
 
@@ -179,6 +181,7 @@ Before outputting the final prd.json, verify:
 - [ ] Every story has `verificationCommands` with at least one runtime check
 - [ ] Acceptance criteria are verifiable, not vague
 - [ ] No story depends on later stories
+- [ ] `docsToUpdate` lists relevant docs for each story
 - [ ] `status` is `"pending"`, `attempts` is `0`, `maxAttempts` is set
 </pre_save_checklist>
 
@@ -207,6 +210,7 @@ Before outputting the final prd.json, verify:
   "maxAttempts": 3,
   "notes": "",
   "blockedBy": [],
+  "docsToUpdate": ["README.md"],
   "completedAt": null,
   "lastAttemptLog": ""
 }
@@ -239,6 +243,7 @@ Before outputting the final prd.json, verify:
   "maxAttempts": 3,
   "notes": "",
   "blockedBy": ["US-001"],
+  "docsToUpdate": ["README.md", "docs/api.md"],
   "completedAt": null,
   "lastAttemptLog": ""
 }
@@ -270,6 +275,7 @@ Before outputting the final prd.json, verify:
   "maxAttempts": 3,
   "notes": "",
   "blockedBy": ["US-002"],
+  "docsToUpdate": ["README.md"],
   "completedAt": null,
   "lastAttemptLog": ""
 }

@@ -51,6 +51,7 @@ Write the code for the story. **Every story must include tests for the new code:
 **Key rules:**
 1. Every story must include **tests for the new code** — unit tests, integration tests, and/or e2e tests as appropriate for the storyType.
 2. Every story must be verified with **real runtime checks** — not just that it compiles. If the story adds an API endpoint, curl it. If it adds a UI feature, test it with Playwright. If it changes the DB, query the DB.
+3. Every story must **update relevant documentation** — if the story adds an API endpoint, update the API docs. If it adds a UI feature, update the user guide. If it changes config, update the README. Check the story's `docsToUpdate` field for specific files, and also look for any existing docs (README, API docs, CHANGELOG, JSDoc/docstrings) that reference the code you changed.
 
 ### Step 5: Run Verification
 

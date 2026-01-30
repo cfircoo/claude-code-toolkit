@@ -115,6 +115,7 @@ Don't rush. Bad requirements = wasted iterations.
       "maxAttempts": 3,
       "notes": "",
       "blockedBy": [],
+      "docsToUpdate": ["README.md", "docs/api.md"],
       "completedAt": null,
       "lastAttemptLog": ""
     }
