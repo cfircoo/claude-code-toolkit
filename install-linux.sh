@@ -521,6 +521,18 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         bash "$INSTALL_SCRIPT"
     }
 
+    # Function to install delegate-first hook
+    install_delegate_first() {
+        local INSTALL_SCRIPT="$SCRIPT_DIR/hooks/delegate-first/install.sh"
+
+        if [ ! -f "$INSTALL_SCRIPT" ]; then
+            echo -e "${YELLOW}⚠${NC} Delegate-first install script not found"
+            return
+        fi
+
+        bash "$INSTALL_SCRIPT"
+    }
+
     # Function to update settings.json by merging toolkit settings
     copy_settings() {
         # Check if jq is available
@@ -663,6 +675,8 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         install_damage_control
         echo -e "${BLUE}Concise Mode (brief responses):${NC}"
         install_concise_mode
+        echo -e "${BLUE}Delegate-First (check subagents/skills):${NC}"
+        install_delegate_first
         echo -e "${BLUE}Settings:${NC}"
         copy_settings
         echo -e "${BLUE}Perplexity API Key:${NC}"
@@ -725,6 +739,13 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         echo -n "Install concise-mode hook? (y/n): "
         read -r choice
         [[ "$choice" =~ ^[Yy]$ ]] && install_concise_mode
+
+        echo
+        echo -e "${BLUE}━━━ Delegate-First ━━━${NC}"
+        echo -e "${DIM}Reminds Claude to check for subagents/skills before starting tasks${NC}"
+        echo -n "Install delegate-first hook? (y/n): "
+        read -r choice
+        [[ "$choice" =~ ^[Yy]$ ]] && install_delegate_first
 
         echo
         echo -e "${BLUE}━━━ Settings ━━━${NC}"
