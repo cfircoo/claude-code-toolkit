@@ -49,11 +49,39 @@ Write the code for the story. **Every story must include tests for the new code:
 | `test` | Test suites, fixtures | N/A (this IS the test story) | Run the test suite, check coverage |
 
 **Key rules:**
-1. Every story must include **tests for the new code** — unit tests, integration tests, and/or e2e tests as appropriate for the storyType.
-2. Every story must be verified with **real runtime checks** — not just that it compiles. If the story adds an API endpoint, curl it. If it adds a UI feature, test it with Playwright. If it changes the DB, query the DB.
+1. Every story must include **tests for the new code** — unit tests, integration tests, and/or e2e tests as appropriate for the storyType. **A story without tests is not done, even if the code works.** The test IS the proof.
+2. Every story must be verified with **real runtime checks** — not just that it compiles. If the story adds an API endpoint, curl it. If it adds a UI feature, test it with Playwright. If it changes the DB, query the DB. **Build + typecheck alone is NEVER sufficient verification.**
 3. Every story must **update relevant documentation** — if the story adds an API endpoint, update the API docs. If it adds a UI feature, update the user guide. If it changes config, update the README. Check the story's `docsToUpdate` field for specific files, and also look for any existing docs (README, API docs, CHANGELOG, JSDoc/docstrings) that reference the code you changed.
 
 ### Step 5: Run Verification
+
+#### Step 5a: Enforce Runtime Verification (MANDATORY)
+
+**Before running any verification commands**, check that the story has **real runtime verification** — not just build/typecheck. Build and typecheck are baseline hygiene, NOT verification.
+
+**HARD RULE: A story with ONLY build/typecheck commands (e.g., `npm run typecheck`, `npx tsc`, `npm run build`, `npx electron-vite build`) is NOT verified. You MUST add real runtime checks before proceeding.**
+
+For each storyType, you MUST have at least one of these:
+
+| storyType | Required runtime verification |
+|-----------|-------------------------------|
+| `backend` / `api` | Test that calls the actual endpoint or service (unit/integration test or curl) |
+| `frontend` | Playwright e2e test OR a test that renders the component and asserts behavior |
+| `database` | Migration runs + query confirms schema change |
+| `infra` | Health check or service startup test |
+| `test` | The test suite itself runs and passes |
+
+**If the story's `verificationCommands` only contain build/typecheck:**
+1. Write a real runtime test for the feature (unit test, integration test, e2e test, or a verification script)
+2. Add the test command to the story's `verificationCommands` in `tasks/prd.json`
+3. Then proceed to run all commands
+
+**Example — a story that adds a streaming IPC handler:**
+- BAD (build-only): `npx electron-vite build` + `npx tsc --noEmit` → This proves nothing about whether the feature works
+- GOOD: `npx vitest run tests/unit/streaming.test.ts` → Tests the actual handler logic
+- GOOD: `npx playwright test tests/e2e/chat-streaming.spec.ts` → Tests the real user flow
+
+#### Step 5b: Execute Verification Commands
 
 Execute each command in the story's `verificationCommands` array:
 
@@ -68,9 +96,9 @@ Execute each command in the story's `verificationCommands` array:
 - `not_empty` — stdout must be non-empty
 - `matches:REGEX` — stdout must match the regex pattern
 
-**ALL** verification commands must pass. If any command is missing for runtime validation (e.g., the story has no curl check for a new endpoint), **write and add the verification command** to `tasks/prd.json` before running it.
+**ALL** verification commands must pass.
 
-### Step 5b: Run Full Test Suite (Regression Check)
+### Step 5c: Run Full Test Suite (Regression Check)
 
 After story-specific verifications pass, run the **full test suite** to ensure nothing is broken:
 

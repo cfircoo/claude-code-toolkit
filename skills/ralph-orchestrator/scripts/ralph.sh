@@ -20,6 +20,17 @@ PRD_FILE="$TASKS_DIR/prd.json"
 PROGRESS_FILE="$TASKS_DIR/progress.txt"
 ARCHIVE_DIR="$TASKS_DIR/.ralph-archive"
 LAST_BRANCH_FILE="$TASKS_DIR/.ralph-last-branch"
+LOG_FILE="$TASKS_DIR/ralph.log"
+
+# Logging: write to both stdout and log file
+log() {
+  echo "$@" | tee -a "$LOG_FILE"
+}
+
+# Start fresh log for this run
+echo "=== Ralph run started: $(date) ===" > "$LOG_FILE"
+echo "Max iterations: $MAX_ITERATIONS" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
 
 # Check that prd.json exists
 if [ ! -f "$PRD_FILE" ]; then
@@ -118,35 +129,40 @@ check_exhausted() {
   return 1
 }
 
-echo "Starting Ralph - Max iterations: $MAX_ITERATIONS"
+log "Starting Ralph - Max iterations: $MAX_ITERATIONS"
 print_status
 
 for i in $(seq 1 $MAX_ITERATIONS); do
-  echo ""
-  echo "═══════════════════════════════════════════════════════"
-  echo "  Ralph Iteration $i of $MAX_ITERATIONS"
-  echo "═══════════════════════════════════════════════════════"
+  log ""
+  log "═══════════════════════════════════════════════════════"
+  log "  Ralph Iteration $i of $MAX_ITERATIONS"
+  log "═══════════════════════════════════════════════════════"
+
+  # Log which story is next (before spawning Claude)
+  NEXT_STORY=$(jq -r '[.userStories[] | select(.status == "pending" or (.status == "failed" and .attempts < .maxAttempts))] | sort_by(.priority) | .[0] | "\(.id): \(.title)"' "$PRD_FILE" 2>/dev/null || echo "unknown")
+  log "  Picking up: $NEXT_STORY"
+  log ""
 
   # Run claude with the ralph prompt
-  OUTPUT=$(claude --dangerously-skip-permissions -p "$(cat "$SCRIPT_DIR/prompt.md")" 2>&1 | tee /dev/stderr) || true
+  OUTPUT=$(claude --dangerously-skip-permissions -p "$(cat "$SCRIPT_DIR/prompt.md")" 2>&1 | tee -a "$LOG_FILE" | tee /dev/stderr) || true
 
   # Check for completion signal
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
-    echo ""
+    log ""
     print_status
-    echo ""
-    echo "Ralph completed all tasks!"
-    echo "Completed at iteration $i of $MAX_ITERATIONS"
+    log ""
+    log "Ralph completed all tasks!"
+    log "Completed at iteration $i of $MAX_ITERATIONS"
     exit 0
   fi
 
   # Check for blocked signal
   if echo "$OUTPUT" | grep -q "<promise>BLOCKED</promise>"; then
-    echo ""
+    log ""
     print_status
-    echo ""
-    echo "Ralph is BLOCKED - all remaining stories have exceeded maxAttempts or are blocked."
-    echo "Check progress.txt and prd.json for details."
+    log ""
+    log "Ralph is BLOCKED - all remaining stories have exceeded maxAttempts or are blocked."
+    log "Check progress.txt and prd.json for details."
     exit 2
   fi
 
@@ -155,13 +171,13 @@ for i in $(seq 1 $MAX_ITERATIONS); do
 
   # Check if all stories are stuck
   if check_exhausted; then
-    echo ""
-    echo "WARNING: All remaining stories are exhausted or blocked."
-    echo "Ralph will continue but is unlikely to make progress."
-    echo "Consider reviewing failed stories in prd.json."
+    log ""
+    log "WARNING: All remaining stories are exhausted or blocked."
+    log "Ralph will continue but is unlikely to make progress."
+    log "Consider reviewing failed stories in prd.json."
   fi
 
-  echo "Iteration $i complete. Continuing..."
+  log "Iteration $i complete. Continuing..."
   sleep 2
 done
 
