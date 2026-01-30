@@ -21,8 +21,8 @@ This skill coordinates these tools while keeping you in control at decision poin
 <principle name="fresh_context_per_iteration">
 Ralph spawns fresh Claude instances for each story. Memory persists only through:
 - Git history (committed code)
-- progress.txt (learnings between iterations)
-- prd.json (story status tracking)
+- tasks/progress.txt (learnings between iterations)
+- tasks/prd.json (story status tracking)
 
 **Never assume Ralph "remembers" previous iterations.**
 </principle>
@@ -159,8 +159,8 @@ What would you like to do?
 |------|---------|
 | SPEC.md | Comprehensive requirements from spec-interview |
 | tasks/prd-*.md | Product Requirements Document |
-| prd.json | Atomic user stories for Ralph (in project root) |
-| progress.txt | Learnings between iterations (in project root) |
+| tasks/prd.json | Atomic user stories for Ralph |
+| tasks/progress.txt | Learnings between iterations |
 | scripts/ralph.sh | Ralph execution script (in this skill folder) |
 | scripts/prompt.md | Iteration prompt template |
 
@@ -176,10 +176,10 @@ alias ralph='~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ra
 ralph 5
 
 # Check story status (new schema)
-cat prd.json | jq '.userStories[] | {id, title, status, attempts}'
+cat tasks/prd.json | jq '.userStories[] | {id, title, status, attempts}'
 
 # View learnings
-cat progress.txt
+cat tasks/progress.txt
 ```
 
 </quick_reference>

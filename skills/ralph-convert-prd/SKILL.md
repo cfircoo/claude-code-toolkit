@@ -17,7 +17,7 @@ Transform existing Product Requirements Documents into the structured `prd.json`
 5. Generate `verificationCommands` with real runtime checks
 6. Set `blockedBy` dependencies
 7. Order stories by dependency (schema → backend → UI → dashboard)
-8. Output valid `prd.json`
+8. Output valid `tasks/prd.json`
 </quick_start>
 
 <essential_principles>
@@ -162,7 +162,7 @@ Static checks (typecheck) are always included as baseline. Runtime validation is
 8. **Write acceptance criteria**: Make each criterion specific and verifiable
 9. **Generate verificationCommands**: Add real runtime checks per storyType (curl, Playwright, DB queries)
 10. **Add mandatory criteria**: Ensure every story has "Typecheck passes"
-11. **Generate prd.json**: Output the complete JSON structure
+11. **Generate tasks/prd.json**: Output the complete JSON structure to `tasks/prd.json`
 12. **Run pre-save checklist**: Verify all requirements before finalizing
 </workflow>
 

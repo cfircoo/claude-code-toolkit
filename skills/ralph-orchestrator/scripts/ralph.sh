@@ -13,15 +13,17 @@ MAX_ITERATIONS=${1:-10}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(pwd)"
 
-# Project files (in current working directory)
-PRD_FILE="$PROJECT_DIR/prd.json"
-PROGRESS_FILE="$PROJECT_DIR/progress.txt"
-ARCHIVE_DIR="$PROJECT_DIR/.ralph-archive"
-LAST_BRANCH_FILE="$PROJECT_DIR/.ralph-last-branch"
+# Project files (under tasks/ directory)
+TASKS_DIR="$PROJECT_DIR/tasks"
+mkdir -p "$TASKS_DIR"
+PRD_FILE="$TASKS_DIR/prd.json"
+PROGRESS_FILE="$TASKS_DIR/progress.txt"
+ARCHIVE_DIR="$TASKS_DIR/.ralph-archive"
+LAST_BRANCH_FILE="$TASKS_DIR/.ralph-last-branch"
 
 # Check that prd.json exists
 if [ ! -f "$PRD_FILE" ]; then
-  echo "Error: prd.json not found in current directory ($PROJECT_DIR)"
+  echo "Error: prd.json not found at $PRD_FILE"
   echo ""
   echo "Create prd.json with user stories first. Use /ralph-convert-prd to generate it."
   exit 1

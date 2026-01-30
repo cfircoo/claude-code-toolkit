@@ -11,16 +11,16 @@ View current Ralph pipeline progress with detailed status breakdown.
 
 ```bash
 # Project info
-cat prd.json | jq '{project: .project, branch: .branchName, description: .description}'
+cat tasks/prd.json | jq '{project: .project, branch: .branchName, description: .description}'
 
 # Story summary (new schema)
 echo "=== Story Status ==="
-cat prd.json | jq '.userStories[] | "\(.id): \(.title) - status: \(.status // (if .passes then "done" else "pending" end)) | attempts: \(.attempts // "n/a") / \(.maxAttempts // "n/a")"'
+cat tasks/prd.json | jq '.userStories[] | "\(.id): \(.title) - status: \(.status // (if .passes then "done" else "pending" end)) | attempts: \(.attempts // "n/a") / \(.maxAttempts // "n/a")"'
 
 # Status breakdown
 echo ""
 echo "=== Summary ==="
-cat prd.json | jq '{
+cat tasks/prd.json | jq '{
   total: (.userStories | length),
   done: ([.userStories[] | select(.status == "done" or .passes == true)] | length),
   pending: ([.userStories[] | select(.status == "pending" or (.passes == false and .status == null))] | length),
@@ -37,11 +37,11 @@ cat prd.json | jq '{
 
 ```bash
 echo "=== Failed Stories ==="
-cat prd.json | jq '.userStories[] | select(.status == "failed") | {id, title, attempts, maxAttempts, lastAttemptLog}'
+cat tasks/prd.json | jq '.userStories[] | select(.status == "failed") | {id, title, attempts, maxAttempts, lastAttemptLog}'
 
 echo ""
 echo "=== Blocked Stories ==="
-cat prd.json | jq '.userStories[] | select(.status == "blocked" or (.blockedBy | length > 0)) | {id, title, blockedBy}'
+cat tasks/prd.json | jq '.userStories[] | select(.status == "blocked" or (.blockedBy | length > 0)) | {id, title, blockedBy}'
 ```
 </step>
 
@@ -50,7 +50,7 @@ cat prd.json | jq '.userStories[] | select(.status == "blocked" or (.blockedBy |
 
 ```bash
 echo "=== Recent Learnings ==="
-tail -30 progress.txt 2>/dev/null || echo "No progress.txt yet"
+tail -30 tasks/progress.txt 2>/dev/null || echo "No tasks/progress.txt yet"
 ```
 </step>
 
@@ -75,7 +75,7 @@ Based on status:
 - If some failed with attempts remaining: "Would you like to continue Ralph execution? Some stories can be retried."
 - If exhausted stories exist: "Some stories exceeded maxAttempts. Review their lastAttemptLog and consider revising the stories or acceptance criteria."
 - If blocked stories exist: "Some stories are blocked. Check their blockedBy dependencies."
-- If no prd.json: "No prd.json found. Start with full pipeline or from-prd workflow."
+- If no prd.json: "No tasks/prd.json found. Start with full pipeline or from-prd workflow."
 </step>
 
 </process>

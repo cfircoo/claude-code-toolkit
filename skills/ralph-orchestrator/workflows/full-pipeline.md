@@ -59,7 +59,7 @@ This will:
 - Generate `verificationCommands` with real runtime checks per storyType
 - Set `blockedBy` dependencies between stories
 - Add mandatory criteria ("Typecheck passes")
-- Output prd.json
+- Output tasks/prd.json
 
 **User checkpoint:** Review prd.json stories. Ask user:
 "prd.json created with [N] user stories. Please review:
@@ -80,7 +80,7 @@ Before running Ralph, confirm:
 ls -la ~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh
 
 # Verify prd.json is valid and has new schema fields
-cat prd.json | jq '{
+cat tasks/prd.json | jq '{
   stories: (.userStories | length),
   with_status: ([.userStories[] | select(.status != null)] | length),
   with_verification: ([.userStories[] | select(.verificationCommands != null and (.verificationCommands | length) > 0)] | length),
@@ -114,7 +114,7 @@ Inform user:
 2. Implement the story with real tests
 3. Run all verification commands (curl, Playwright, DB queries)
 4. Commit only if ALL verifications pass
-5. Update prd.json status and progress.txt
+5. Update tasks/prd.json status and tasks/progress.txt
 
 Exit codes:
 - 0: All stories completed
@@ -122,8 +122,8 @@ Exit codes:
 - 2: All remaining stories blocked or exhausted
 
 You can check progress with:
-- cat prd.json | jq '.userStories[] | {id, title, status, attempts}'
-- cat progress.txt
+- cat tasks/prd.json | jq '.userStories[] | {id, title, status, attempts}'
+- cat tasks/progress.txt
 - git log --oneline -10"
 </step>
 
@@ -133,13 +133,13 @@ You can check progress with:
 Periodically check:
 ```bash
 # Story status
-cat prd.json | jq '.userStories[] | {id, title, status, attempts}'
+cat tasks/prd.json | jq '.userStories[] | {id, title, status, attempts}'
 
 # Recent commits
 git log --oneline -5
 
 # Learnings
-tail -20 progress.txt
+tail -20 tasks/progress.txt
 ```
 
 When all stories have `status: "done"`, Ralph outputs `<promise>COMPLETE</promise>` and exits.

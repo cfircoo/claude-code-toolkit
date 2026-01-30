@@ -11,10 +11,10 @@ Run Ralph on an existing prd.json file.
 
 ```bash
 # Verify file exists
-ls -la prd.json
+ls -la tasks/prd.json
 
 # Check structure and schema version
-cat prd.json | jq '{
+cat tasks/prd.json | jq '{
   project: .project,
   branch: .branchName,
   total_stories: (.userStories | length),
@@ -23,10 +23,10 @@ cat prd.json | jq '{
 }'
 
 # Show incomplete stories
-cat prd.json | jq '.userStories[] | select(.status != "done" and .passes != true) | {id, title, status: (.status // "pending"), attempts: (.attempts // 0), storyType}'
+cat tasks/prd.json | jq '.userStories[] | select(.status != "done" and .passes != true) | {id, title, status: (.status // "pending"), attempts: (.attempts // 0), storyType}'
 ```
 
-If no prd.json exists, route to full-pipeline or from-prd workflow.
+If no tasks/prd.json exists, route to full-pipeline or from-prd workflow.
 
 If using old schema (no `status` field), warn user:
 "prd.json uses the old schema (boolean `passes` field). Ralph will auto-migrate stories to the new status-based schema during execution. Consider running ralph-convert-prd again for full verification commands."
@@ -37,7 +37,7 @@ If using old schema (no `status` field), warn user:
 
 Display stories to user:
 ```bash
-cat prd.json | jq '.userStories[] | {id, title, status: (.status // (if .passes then "done" else "pending" end)), priority, storyType, attempts: (.attempts // 0), blockedBy: (.blockedBy // [])}'
+cat tasks/prd.json | jq '.userStories[] | {id, title, status: (.status // (if .passes then "done" else "pending" end)), priority, storyType, attempts: (.attempts // 0), blockedBy: (.blockedBy // [])}'
 ```
 
 Ask: "These are the stories Ralph will work on. Incomplete stories will be implemented in priority order, respecting blockedBy dependencies. Ready to execute?"
