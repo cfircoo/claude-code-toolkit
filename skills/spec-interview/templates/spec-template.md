@@ -257,37 +257,69 @@ Entity: {{Name}}
 
 ---
 
-## 12. Implementation Plan
+## 12. Verification Environment
 
-### 12.1 Phases
+> This section is used by Ralph (autonomous agent) to generate accurate verification commands for each user story.
+
+### 12.1 Dev Server
+- **Start command:** {{npm run dev / python manage.py runserver / etc.}}
+- **URL:** {{http://localhost:3000}}
+- **Health endpoint:** {{/health or /api/health (if any)}}
+
+### 12.2 Database
+- **Type:** {{PostgreSQL / SQLite / MySQL / etc.}}
+- **ORM/Migration tool:** {{Prisma / Alembic / Drizzle / Knex / etc.}}
+- **Migration command:** {{npx prisma migrate deploy / alembic upgrade head / etc.}}
+- **Direct query command:** {{npx prisma db execute / psql / sqlite3 / etc.}}
+
+### 12.3 Test Runners
+| Type | Tool | Command |
+|------|------|---------|
+| Unit tests | {{Jest / Pytest / etc.}} | {{npm test / pytest}} |
+| E2E tests | {{Playwright / Cypress / etc.}} | {{npx playwright test / npx cypress run}} |
+| Typecheck | {{tsc / mypy / etc.}} | {{npx tsc --noEmit / mypy .}} |
+| Lint | {{ESLint / Ruff / etc.}} | {{npm run lint / ruff check}} |
+| Build | {{Next.js / Vite / etc.}} | {{npm run build}} |
+
+### 12.4 Verification Patterns
+- **API verification:** {{curl -s http://localhost:PORT/api/...}}
+- **UI verification:** {{Playwright tests at tests/e2e/}}
+- **DB verification:** {{Direct query via ORM tool or psql}}
+- **CI checks:** {{List of checks that run in CI}}
+
+---
+
+## 13. Implementation Plan
+
+### 13.1 Phases
 | Phase | Scope | Milestone |
 |-------|-------|-----------|
 | 1 | {{What's included}} | {{Deliverable}} |
 | 2 | {{What's included}} | {{Deliverable}} |
 
-### 12.2 Risks & Mitigations
+### 13.2 Risks & Mitigations
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | {{What could go wrong}} | {{H/M/L}} | {{H/M/L}} | {{How to prevent/respond}} |
 
-### 12.3 Open Questions
+### 13.3 Open Questions
 {{Anything still unresolved - should be minimal}}
 
 - [ ] {{Question}} — Owner: {{who will answer}}
 
 ---
 
-## 13. Appendix
+## 14. Appendix
 
-### 13.1 Glossary
+### 14.1 Glossary
 | Term | Definition |
 |------|------------|
 | {{Term}} | {{What it means in this context}} |
 
-### 13.2 References
+### 14.2 References
 - {{Link to related docs, designs, or prior art}}
 
-### 13.3 Change Log
+### 14.3 Change Log
 | Date | Author | Change |
 |------|--------|--------|
 | {{Date}} | {{Who}} | {{What changed}} |

@@ -18,6 +18,7 @@ This will:
 - Ask deep questions about the feature
 - Surface hidden assumptions
 - Force explicit tradeoffs
+- Gather verification environment info (dev server, DB, test runners, ports)
 - Output SPEC.md
 
 **User checkpoint:** Review SPEC.md before proceeding. Ask user:
@@ -53,7 +54,10 @@ Arguments: Path to the PRD file
 
 This will:
 - Break down into atomic user stories
+- Classify each story with `storyType` (backend, frontend, database, api, infra, test)
 - Order by dependency (schema → backend → UI → dashboard)
+- Generate `verificationCommands` with real runtime checks per storyType
+- Set `blockedBy` dependencies between stories
 - Add mandatory criteria ("Typecheck passes")
 - Output prd.json
 
@@ -61,7 +65,8 @@ This will:
 "prd.json created with [N] user stories. Please review:
 - Are stories atomic (one context window each)?
 - Is ordering correct (no forward dependencies)?
-- Are acceptance criteria verifiable?
+- Does each story have real verification commands (curl, Playwright, DB queries)?
+- Are blockedBy dependencies correct?
 
 Ready to execute Ralph?"
 </step>
@@ -72,10 +77,15 @@ Ready to execute Ralph?"
 Before running Ralph, confirm:
 ```bash
 # Check ralph.sh exists
-ls -la ~/.claude/ralph.sh
+ls -la ~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh
 
-# Verify prd.json is valid
-cat prd.json | jq '.userStories | length'
+# Verify prd.json is valid and has new schema fields
+cat prd.json | jq '{
+  stories: (.userStories | length),
+  with_status: ([.userStories[] | select(.status != null)] | length),
+  with_verification: ([.userStories[] | select(.verificationCommands != null and (.verificationCommands | length) > 0)] | length),
+  with_storyType: ([.userStories[] | select(.storyType != null)] | length)
+}'
 
 # Check git status is clean
 git status
@@ -95,23 +105,26 @@ Then execute using Task tool with Bash agent in background:
 Use Task tool:
   subagent_type: Bash
   run_in_background: true
-  prompt: "Run ~/.claude/ralph.sh [iterations] and monitor output"
+  prompt: "Run ~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh [iterations] and monitor output"
 ```
 
 Inform user:
 "Ralph is now running autonomously. Each iteration will:
-1. Select highest-priority incomplete story
-2. Implement the story
-3. Run quality checks
-4. Commit if passing
-5. Update prd.json
+1. Select highest-priority eligible story (unblocked, not exhausted)
+2. Implement the story with real tests
+3. Run all verification commands (curl, Playwright, DB queries)
+4. Commit only if ALL verifications pass
+5. Update prd.json status and progress.txt
+
+Exit codes:
+- 0: All stories completed
+- 1: Max iterations reached
+- 2: All remaining stories blocked or exhausted
 
 You can check progress with:
-- cat prd.json | jq '.userStories[] | {id, title, passes}'
+- cat prd.json | jq '.userStories[] | {id, title, status, attempts}'
 - cat progress.txt
-- git log --oneline -10
-
-Ralph will exit when all stories pass or iteration limit reached."
+- git log --oneline -10"
 </step>
 
 <step name="6_monitor_completion">
@@ -120,7 +133,7 @@ Ralph will exit when all stories pass or iteration limit reached."
 Periodically check:
 ```bash
 # Story status
-cat prd.json | jq '.userStories[] | {id, title, passes}'
+cat prd.json | jq '.userStories[] | {id, title, status, attempts}'
 
 # Recent commits
 git log --oneline -5
@@ -129,17 +142,19 @@ git log --oneline -5
 tail -20 progress.txt
 ```
 
-When all stories have `passes: true`, Ralph outputs `<promise>COMPLETE</promise>` and exits.
+When all stories have `status: "done"`, Ralph outputs `<promise>COMPLETE</promise>` and exits.
+If Ralph exits with code 2, review failed stories and consider revising.
 </step>
 
 </process>
 
 <success_criteria>
 Full pipeline is complete when:
-- [ ] SPEC.md created and reviewed
+- [ ] SPEC.md created and reviewed (including verification environment section)
 - [ ] PRD created with verifiable acceptance criteria
-- [ ] prd.json has atomic stories ordered by dependency
+- [ ] prd.json has atomic stories with storyType, verificationCommands, and blockedBy
 - [ ] Ralph executed successfully
-- [ ] All stories have `passes: true`
+- [ ] All stories have `status: "done"`
+- [ ] All verification commands passed (real runtime checks)
 - [ ] Code committed and pushed
 </success_criteria>

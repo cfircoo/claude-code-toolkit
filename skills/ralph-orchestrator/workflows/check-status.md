@@ -1,7 +1,7 @@
 # Workflow: Check Status
 
 <objective>
-View current Ralph pipeline progress.
+View current Ralph pipeline progress with detailed status breakdown.
 </objective>
 
 <process>
@@ -13,22 +13,39 @@ View current Ralph pipeline progress.
 # Project info
 cat prd.json | jq '{project: .project, branch: .branchName, description: .description}'
 
-# Story summary
+# Story summary (new schema)
 echo "=== Story Status ==="
-cat prd.json | jq '.userStories[] | "\(.id): \(.title) - \(if .passes then "✓ PASS" else "○ pending" end)"'
+cat prd.json | jq '.userStories[] | "\(.id): \(.title) - status: \(.status // (if .passes then "done" else "pending" end)) | attempts: \(.attempts // "n/a") / \(.maxAttempts // "n/a")"'
 
-# Counts
+# Status breakdown
 echo ""
 echo "=== Summary ==="
 cat prd.json | jq '{
   total: (.userStories | length),
-  passed: ([.userStories[] | select(.passes == true)] | length),
-  remaining: ([.userStories[] | select(.passes == false)] | length)
+  done: ([.userStories[] | select(.status == "done" or .passes == true)] | length),
+  pending: ([.userStories[] | select(.status == "pending" or (.passes == false and .status == null))] | length),
+  failed: ([.userStories[] | select(.status == "failed")] | length),
+  blocked: ([.userStories[] | select(.status == "blocked")] | length),
+  in_progress: ([.userStories[] | select(.status == "in_progress")] | length),
+  exhausted: ([.userStories[] | select(.status == "failed" and .attempts >= .maxAttempts)] | length)
 }'
 ```
 </step>
 
-<step name="2_check_progress">
+<step name="2_check_failures">
+**Failed and exhausted stories**
+
+```bash
+echo "=== Failed Stories ==="
+cat prd.json | jq '.userStories[] | select(.status == "failed") | {id, title, attempts, maxAttempts, lastAttemptLog}'
+
+echo ""
+echo "=== Blocked Stories ==="
+cat prd.json | jq '.userStories[] | select(.status == "blocked" or (.blockedBy | length > 0)) | {id, title, blockedBy}'
+```
+</step>
+
+<step name="3_check_progress">
 **Learnings from iterations**
 
 ```bash
@@ -37,7 +54,7 @@ tail -30 progress.txt 2>/dev/null || echo "No progress.txt yet"
 ```
 </step>
 
-<step name="3_check_git">
+<step name="4_check_git">
 **Recent commits**
 
 ```bash
@@ -50,18 +67,21 @@ git branch --show-current
 ```
 </step>
 
-<step name="4_next_actions">
+<step name="5_next_actions">
 **Suggest next steps**
 
 Based on status:
-- If all passed: "All stories complete! Review the implementation and consider opening a PR."
-- If some pending: "Would you like to continue Ralph execution?"
+- If all done: "All stories complete! Review the implementation and consider opening a PR."
+- If some failed with attempts remaining: "Would you like to continue Ralph execution? Some stories can be retried."
+- If exhausted stories exist: "Some stories exceeded maxAttempts. Review their lastAttemptLog and consider revising the stories or acceptance criteria."
+- If blocked stories exist: "Some stories are blocked. Check their blockedBy dependencies."
 - If no prd.json: "No prd.json found. Start with full pipeline or from-prd workflow."
 </step>
 
 </process>
 
 <success_criteria>
-- [ ] Status displayed clearly
-- [ ] Next steps suggested
+- [ ] Status displayed with full detail (status, attempts, blockers)
+- [ ] Failed/exhausted stories highlighted
+- [ ] Next steps suggested based on current state
 </success_criteria>

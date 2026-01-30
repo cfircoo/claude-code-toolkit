@@ -203,6 +203,20 @@ When all domains are covered and no ambiguities remain:
 - What are the riskiest parts that need prototyping?
 </domain>
 
+<domain name="verification_environment">
+**Gather runtime verification info (critical for Ralph autonomous execution):**
+- What's the tech stack? (framework, language, package manager)
+- How do you start the dev server? What port does it run on?
+- What database is used? How do you connect and query it directly?
+- What test frameworks are set up? (Jest, Pytest, Playwright, Cypress, etc.)
+- Are there existing e2e tests? What runner and how to execute them?
+- What's the typecheck command? Lint command? Build command?
+- Are there health check endpoints?
+- How do you currently verify a feature works? (manual steps we can automate)
+- What CI checks currently run?
+- What ORM/migration tool is used? (Prisma, Alembic, Drizzle, etc.)
+</domain>
+
 </question_domains>
 
 <interview_techniques>
