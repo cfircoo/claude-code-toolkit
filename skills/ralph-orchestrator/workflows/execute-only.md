@@ -44,7 +44,9 @@ Ask: "These are the stories Ralph will work on. Incomplete stories will be imple
 </step>
 
 <step name="3_execute_ralph">
-**Run autonomous implementation**
+**Run autonomous implementation via ralph.sh**
+
+**CRITICAL: ALL implementation MUST go through ralph.sh. NEVER write code or modify project files directly.**
 
 Ask user for iteration limit:
 "How many iterations? (default: 5, remaining stories: [N])"
@@ -54,12 +56,12 @@ Execute:
 ~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh [iterations]
 ```
 
-Exit codes:
-- 0: All stories completed
-- 1: Max iterations reached
-- 2: All remaining stories blocked or exhausted
+**After ralph.sh exits, check the exit code:**
+- **Exit 0**: All stories completed successfully.
+- **Exit 1**: Max iterations reached. **STOP and ask the user for instructions.**
+- **Exit 2**: All stories blocked or exhausted. **STOP and show failed stories with `lastAttemptLog`. Ask the user for instructions.**
 
-Provide monitoring commands.
+**NEVER continue past a non-zero exit code without user approval.**
 </step>
 
 </process>

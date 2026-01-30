@@ -18,6 +18,26 @@ This skill coordinates these tools while keeping you in control at decision poin
 
 <essential_principles>
 
+<principle name="CRITICAL_never_implement_directly">
+**NEVER implement user stories yourself.** The orchestrator's ONLY job is to:
+1. Run spec-interview, generate-prd, ralph-convert-prd skills
+2. Launch `ralph.sh` to execute stories
+
+**ALL code implementation MUST happen through `ralph.sh`** — the bash script that spawns fresh Claude instances. You are the orchestrator, NOT the implementer. Do not write code, create files, modify source files, or make any project changes directly. Only ralph.sh iterations do that.
+
+If you catch yourself about to write code or modify project files: **STOP. Launch ralph.sh instead.**
+</principle>
+
+<principle name="CRITICAL_stop_on_errors">
+**STOP and ask the user for instructions** whenever:
+- ralph.sh exits with non-zero code (exit 1 = max iterations, exit 2 = blocked)
+- A pre-execution check fails (invalid prd.json, missing files, dirty git state)
+- Any unexpected error occurs during the pipeline
+- You are unsure about any decision
+
+**Do NOT** try to fix issues yourself, retry automatically, or continue past errors. Present the error clearly to the user and wait for their instructions.
+</principle>
+
 <principle name="fresh_context_per_iteration">
 Ralph spawns fresh Claude instances for each story. Memory persists only through:
 - Git history (committed code)

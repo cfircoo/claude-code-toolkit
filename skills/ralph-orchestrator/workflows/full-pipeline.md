@@ -95,36 +95,24 @@ If ralph.sh doesn't exist, inform user they need to set it up.
 </step>
 
 <step name="5_execute_ralph">
-**Run autonomous implementation**
+**Run autonomous implementation via ralph.sh**
+
+**CRITICAL: ALL implementation MUST go through ralph.sh. NEVER write code or modify project files directly. You are the orchestrator, not the implementer.**
 
 Ask user for iteration limit:
 "How many iterations should Ralph run? (default: 5, max recommended: 10)"
 
-Then execute using Task tool with Bash agent in background:
-```
-Use Task tool:
-  subagent_type: Bash
-  run_in_background: true
-  prompt: "Run ~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh [iterations] and monitor output"
+Then execute ralph.sh:
+```bash
+~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh [iterations]
 ```
 
-Inform user:
-"Ralph is now running autonomously. Each iteration will:
-1. Select highest-priority eligible story (unblocked, not exhausted)
-2. Implement the story with real tests
-3. Run all verification commands (curl, Playwright, DB queries)
-4. Commit only if ALL verifications pass
-5. Update tasks/prd.json status and tasks/progress.txt
+**After ralph.sh exits, check the exit code:**
+- **Exit 0**: All stories completed. Proceed to step 6.
+- **Exit 1**: Max iterations reached. **STOP and inform the user.** Show status summary and ask for instructions (increase iterations? review failures? adjust stories?).
+- **Exit 2**: All remaining stories blocked or exhausted. **STOP and inform the user.** Show failed stories with their `lastAttemptLog` and ask for instructions.
 
-Exit codes:
-- 0: All stories completed
-- 1: Max iterations reached
-- 2: All remaining stories blocked or exhausted
-
-You can check progress with:
-- cat tasks/prd.json | jq '.userStories[] | {id, title, status, attempts}'
-- cat tasks/progress.txt
-- git log --oneline -10"
+**NEVER continue past a non-zero exit code without user approval.**
 </step>
 
 <step name="6_monitor_completion">
