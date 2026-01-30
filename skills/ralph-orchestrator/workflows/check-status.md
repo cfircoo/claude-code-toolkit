@@ -54,6 +54,24 @@ tail -30 tasks/progress.txt 2>/dev/null || echo "No tasks/progress.txt yet"
 ```
 </step>
 
+<step name="3b_check_test_log">
+**Tests created**
+
+```bash
+echo "=== Test Log ==="
+tail -40 tasks/test-log.md 2>/dev/null || echo "No tasks/test-log.md yet"
+```
+</step>
+
+<step name="3c_check_review_notes">
+**Review notes and suggestions**
+
+```bash
+echo "=== Review Notes ==="
+tail -40 tasks/review-notes.md 2>/dev/null || echo "No tasks/review-notes.md yet"
+```
+</step>
+
 <step name="4_check_git">
 **Recent commits**
 

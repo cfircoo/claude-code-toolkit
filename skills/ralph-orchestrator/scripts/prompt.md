@@ -93,6 +93,8 @@ Check `tasks/prd.json` root for a `testCommands` field that lists the project's 
 2. Set `completedAt` to current ISO timestamp
 3. Commit all changes with message: `feat(US-XXX): [story title]`
 4. Log success to `tasks/progress.txt`
+5. **Update `tasks/test-log.md`** — append an entry listing all tests created/modified for this story (see Step 6b)
+6. **Update `tasks/review-notes.md`** — append ideas for additional coverage, edge cases, or things the user should consider (see Step 6c)
 
 **If ANY verification or test fails:**
 1. Set story `status` to `"failed"`
@@ -100,6 +102,43 @@ Check `tasks/prd.json` root for a `testCommands` field that lists the project's 
 3. Log the failure and what you learned to `tasks/progress.txt`
 4. Do **NOT** commit broken code
 5. If `attempts >= maxAttempts`, note in `tasks/progress.txt` that this story is exhausted
+
+### Step 6b: Update Test Log
+
+Append to `tasks/test-log.md` (create if missing). This is a running registry of all tests created by Ralph:
+
+```markdown
+## US-XXX: [story title]
+- **Date:** [ISO timestamp]
+- **Tests created:**
+  - `tests/unit/test_user_service.py::test_create_user` — unit test for user creation
+  - `tests/e2e/task-filter.spec.ts` — Playwright e2e test for status filter
+- **Tests modified:**
+  - `tests/integration/test_api.py::test_tasks_endpoint` — added status field assertion
+- **Coverage notes:** [any coverage observations]
+```
+
+### Step 6c: Update Review Notes
+
+Append to `tasks/review-notes.md` (create if missing). After each story passes, think critically about what else might need attention:
+
+```markdown
+## US-XXX: [story title]
+- **Date:** [ISO timestamp]
+- **Additional test ideas:**
+  - Edge case: what happens with 1000+ tasks in the filter?
+  - Missing: no test for concurrent updates to same task
+- **Potential issues to watch:**
+  - The new status column has no index — may be slow at scale
+  - Error message for invalid status is generic — consider user-friendly message
+- **Suggestions for user:**
+  - Consider adding rate limiting to the new endpoint
+  - The filter state persists in URL params — may want localStorage fallback
+- **Related areas that may need attention:**
+  - Dashboard charts don't account for new "blocked" status yet
+```
+
+Be honest and thorough — this is the user's chance to catch gaps before they compound. Think about: missing edge cases, performance concerns, security implications, UX gaps, untested interactions, and future maintenance burden.
 
 ### Step 7: Completion Check
 

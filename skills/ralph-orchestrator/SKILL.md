@@ -162,6 +162,8 @@ What would you like to do?
 | tasks/prd-*.md | Product Requirements Document |
 | tasks/prd.json | Atomic user stories for Ralph |
 | tasks/progress.txt | Learnings between iterations |
+| tasks/test-log.md | Registry of all tests created per story |
+| tasks/review-notes.md | Ideas, edge cases, and suggestions after each story |
 | scripts/ralph.sh | Ralph execution script (in this skill folder) |
 | scripts/prompt.md | Iteration prompt template |
 
