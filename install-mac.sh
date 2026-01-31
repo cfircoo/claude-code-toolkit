@@ -234,6 +234,9 @@ echo -e "${GREEN}✓${NC} Directories created"
 
 echo
 echo -e "${BLUE}→ Installation options...${NC}"
+if [ -z "$INSTALL_MODE" ] && [ "$AUTO_YES" = true ]; then
+    INSTALL_MODE="1"
+fi
 if [ -n "$INSTALL_MODE" ]; then
     install_choice="$INSTALL_MODE"
     case $install_choice in
