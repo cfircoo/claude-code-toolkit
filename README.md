@@ -21,20 +21,26 @@ The easiest way to install the toolkit is using the interactive installer:
 
 ```bash
 # Clone the toolkit
-git clone https://github.com/YOUR_USERNAME/claude-code-toolkit.git
+git clone https://github.com/cfircoo/claude-code-toolkit.git
 cd claude-code-toolkit
 
-# Run the installer (auto-detects macOS or Linux)
+# Run the installer (auto-detects macOS or Linux, installs everything by default)
 ./install.sh
+```
+
+The installer runs non-interactively by default, installing all components. Use `-i` for interactive mode:
+
+```bash
+# Interactive mode - choose components individually
+./install.sh -i
 ```
 
 ### Interactive Installation Modes
 
-The installer offers flexible installation options:
+When running in interactive mode (`-i`), the installer offers:
 
-**1. Install All (Recommended)**
+**1. Install All**
 - One-click installation of all components
-- Fastest and simplest option
 - Installs: skills, agents, commands, hooks, statusline, and settings
 
 **2. Select by Folder**
@@ -43,7 +49,6 @@ The installer offers flexible installation options:
   - **All** - Copy all items in that folder
   - **One-by-one** - Review and select each item individually
   - **Skip** - Skip that entire folder
-- Perfect for customizing your installation
 
 **3. Skip Installation**
 - Exit without copying anything
@@ -76,29 +81,29 @@ You can also run the platform-specific installer directly:
 ./install-linux.sh
 ```
 
-### Non-Interactive Installation
-
-Both installers support command-line options for non-interactive use:
+### Command-Line Options
 
 ```bash
-# Install everything non-interactively
-./install-linux.sh -y
+# Install everything (default)
+./install.sh
 
-# Install all, skip update check
-./install-linux.sh -y --no-update
+# Interactive mode
+./install.sh -i
 
-# Install all, skip UV installation (for damage-control)
-./install-linux.sh --all --no-uv
+# Skip update check
+./install.sh --no-update
+
+# Skip UV installation (for damage-control)
+./install.sh --no-uv
 
 # Show help
-./install-linux.sh --help
+./install.sh --help
 ```
-
-**Available options:**
 
 | Option | Description |
 |--------|-------------|
-| `-y, --yes, --all` | Auto-yes to all prompts (install everything) |
+| `-i, --interactive` | Interactive mode (prompt for each component) |
+| `-y, --yes, --all` | Auto-yes to all prompts (default) |
 | `--no-update` | Skip Claude Code update check |
 | `--no-uv` | Skip UV installation for damage-control hooks |
 | `--select` | Interactive selection mode |
@@ -149,7 +154,7 @@ Skills are modular capabilities that provide domain expertise on demand. They li
 | **create-slash-commands** | Guide to creating slash commands | Building reusable command prompts |
 | **create-agent-skills** | Guide to creating skills | Building modular capabilities |
 | **create-meta-prompts** | Claude-to-Claude pipeline prompts | Multi-stage workflows (research -> plan -> implement) |
-| **ralph-orchestrator** | Orchestrates Ralph autonomous agent pipeline | Building features with spec → PRD → prd.json → execution |
+| **ralph-orchestrator** | Orchestrates Ralph autonomous agent loop — story-by-story execution with verification | Building features with spec → PRD → prd.json → autonomous execution loop |
 | **generate-prd** | Creates PRDs through guided discovery | Defining feature requirements |
 | **ralph-convert-prd** | Converts PRDs to atomic user stories | Preparing PRDs for Ralph execution |
 
@@ -216,15 +221,22 @@ Security hooks that protect against dangerous operations. Installed automaticall
 
 | Hook | Tool | Protection |
 |------|------|------------|
-| **bash-tool-damage-control** | Bash | Blocks `rm -rf`, `git reset --hard`, etc. |
+| **bash-tool-damage-control** | Bash | Blocks `rm -rf`, `git reset --hard`, cloud destructive ops, etc. |
 | **read-tool-damage-control** | Read | Blocks reading `.env`, credentials, SSH keys |
 | **write-tool-damage-control** | Write | Blocks writing to protected paths |
 | **edit-tool-damage-control** | Edit | Blocks editing protected files |
 
+**Git branch protection:**
+- Blocks `git commit` and `git push` on `main`/`master` (runtime branch detection)
+- Allows tag pushes (`git push origin v*`) and `git tag` on protected branches
+- Bare `git push` blocked — must specify remote and branch explicitly
+- `git push --force` blocked — use `--force-with-lease` instead
+
 **Protection levels in `patterns.yaml`:**
-- `zeroAccessPaths` - No operations allowed (Read, Write, Edit, Bash all blocked)
-- `readOnlyPaths` - Read allowed, Write/Edit blocked
-- `destructivePatterns` - Dangerous bash commands blocked
+- `zeroAccessPaths` - No operations allowed — secrets, SSH keys, cloud credentials, certificates, tfstate
+- `readOnlyPaths` - Read allowed, Write/Edit blocked — system dirs, lock files, build artifacts
+- `noDeletePaths` - Read/Write allowed, delete blocked — `.git/`, CI/CD files, LICENSE, README
+- `destructivePatterns` - Dangerous bash commands blocked — rm -rf, git reset --hard, terraform destroy, DROP TABLE, cloud CLI destructive operations
 
 ### Scripts
 
@@ -264,10 +276,9 @@ The toolkit's `settings.json` includes these configurations (merged with your ex
 
 ### Option 1: Automated Installation (Recommended)
 
-Use the install script for hassle-free setup:
-
 ```bash
-./install.sh
+./install.sh          # Install everything (default)
+./install.sh -i       # Interactive mode
 ```
 
 See [Automatic Installation](#automatic-installation-recommended) section above for details.
@@ -385,7 +396,9 @@ cp ~/claude-code-toolkit/agents/git-ops.md .claude/agents/
 # Returns structured report with citations
 ```
 
-### Ralph Autonomous Agent
+### Ralph Autonomous Agent Loop
+
+Ralph is an autonomous execution loop that takes a PRD and implements it story-by-story, each in a fresh Claude instance with real verification.
 
 ```
 > /ralph
@@ -400,6 +413,22 @@ cp ~/claude-code-toolkit/agents/git-ops.md .claude/agents/
 > /ralph-convert-prd tasks/prd-dashboard.md
 # Convert PRD to atomic user stories for Ralph execution
 ```
+
+**How the loop works:**
+- `ralph.sh` iterates through stories in `tasks/prd.json`, spawning fresh Claude instances per story
+- Each story has `verificationCommands` with expect matchers (`exit_code`, `contains`, `matches`)
+- Stories track `status` (pending → in_progress → done/failed/blocked) and `maxAttempts` to prevent infinite retries
+- Real-time logging to `tasks/ralph.log` — monitor with `tail -f tasks/ralph.log`
+- Outputs `test-log.md` (test registry) and `review-notes.md` (learnings) after each story
+- Archives previous runs when switching branches
+- Exit codes: 0 (complete), 1 (max iterations), 2 (all stories blocked/exhausted)
+
+**Key principles:**
+- Never implements directly — all code changes go through ralph.sh → fresh Claude instance
+- Stops on errors (non-zero exit codes require user intervention)
+- Full test suite must pass after each story (no regressions)
+- Each story has `docsToUpdate` to track documentation changes
+- Stories support `blockedBy` dependencies for ordered execution
 
 ## Customization
 
