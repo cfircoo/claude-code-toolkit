@@ -54,10 +54,10 @@ bashToolPatterns:
   - pattern: '\bgit\s+push\s+(-[^\s]*)*-f\b'
     reason: git push -f (use --force-with-lease)
 
-  - pattern: '\bgit\s+push\b.*\b(origin|upstream)\s+(main|master)\b'
+  - pattern: '^git\s+push\b.*\b(origin|upstream)\s+(main|master)\b'
     reason: Pushing directly to main/master — create a feature branch instead
 
-  - pattern: '\bgit\s+push\s*$'
+  - pattern: '^git\s+push\s*$'
     reason: Bare git push blocked — specify remote and branch explicitly (e.g. git push origin feature-branch)
 
   - pattern: '\bgit\s+stash\s+clear\b'
