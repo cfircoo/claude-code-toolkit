@@ -200,7 +200,7 @@ footer {
     <a href="#demo" class="btn btn-secondary">See it in action</a>
   </div>
   <div class="install-box">
-    <code>git clone https://github.com/cfircoo/claude-code-toolkit.git && cd claude-code-toolkit && ./install.sh</code>
+    <code>git clone https://github.com/cfircoo/claude-code-toolkit.git && cd claude-code-toolkit && ./install.sh -y</code>
     <button onclick="copyInstall(this)">Copy</button>
   </div>
 </section>
@@ -247,7 +247,7 @@ footer {
         <div class="terminal-dot g"></div>
       </div>
       <div class="terminal-body">
-        <div class="terminal-line"><span class="prompt">$ </span>./install.sh</div>
+        <div class="terminal-line"><span class="prompt">$ </span>./install.sh -y</div>
         <div class="terminal-line"><span class="output">Installing Claude Code Toolkit...</span></div>
         <div class="terminal-line"><span class="output"><span class="highlight">&#10003;</span> 15 skills installed</span></div>
         <div class="terminal-line"><span class="output"><span class="highlight">&#10003;</span> 8 agents configured</span></div>
@@ -271,7 +271,7 @@ footer {
         <h3>Installation</h3>
         <p>Clone the repo and run the interactive installer. It handles dependencies, detects existing configs, and lets you pick which components to install.</p>
         <ul>
-          <li><strong>Automated:</strong> <code>./install.sh</code></li>
+          <li><strong>Automated:</strong> <code>./install.sh -y</code></li>
           <li><strong>Interactive:</strong> Choose components selectively</li>
           <li><strong>CI/CD:</strong> Non-interactive via CLI flags</li>
           <li><strong>Manual:</strong> Copy folders to <code>~/.claude/</code></li>
@@ -368,7 +368,7 @@ footer {
 
 <script>
 function copyInstall(btn) {
-  const cmd = 'git clone https://github.com/cfircoo/claude-code-toolkit.git && cd claude-code-toolkit && ./install.sh';
+  const cmd = 'git clone https://github.com/cfircoo/claude-code-toolkit.git && cd claude-code-toolkit && ./install.sh -y';
   navigator.clipboard.writeText(cmd).then(() => {
     btn.textContent = 'Copied!';
     btn.classList.add('copied');

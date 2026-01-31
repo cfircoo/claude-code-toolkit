@@ -14,7 +14,7 @@ DIM='\033[2m'
 NC='\033[0m' # No Color
 
 # Default options
-AUTO_YES=false
+AUTO_YES=true
 SKIP_UPDATE_CHECK=false
 SKIP_UV_INSTALL=false
 INSTALL_MODE=""  # all, select, skip
@@ -24,7 +24,8 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Options:"
-    echo "  -y, --yes           Auto-yes to all prompts (non-interactive)"
+    echo "  -i, --interactive   Interactive mode (prompt for each component)"
+    echo "  -y, --yes           Auto-yes to all prompts (non-interactive, default)"
     echo "  --no-update         Skip Claude Code update check"
     echo "  --no-uv             Skip UV installation for damage-control"
     echo "  --all               Install all components (same as -y)"
@@ -41,6 +42,10 @@ show_help() {
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -i|--interactive)
+            AUTO_YES=false
+            shift
+            ;;
         -y|--yes|--all)
             AUTO_YES=true
             INSTALL_MODE="1"
@@ -229,6 +234,9 @@ echo -e "${GREEN}✓${NC} Directories created"
 
 echo
 echo -e "${BLUE}→ Installation options...${NC}"
+if [ -z "$INSTALL_MODE" ] && [ "$AUTO_YES" = true ]; then
+    INSTALL_MODE="1"
+fi
 if [ -n "$INSTALL_MODE" ]; then
     install_choice="$INSTALL_MODE"
     case $install_choice in
