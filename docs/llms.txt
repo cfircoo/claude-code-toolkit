@@ -1,0 +1,23 @@
+# Claude Code Toolkit
+
+> An open-source toolkit of modular skills, agents, hooks, and commands that supercharge your Claude Code IDE with AI-powered automation and security guardrails.
+
+## Getting Started
+- [Installation Guide](https://github.com/cfircoo/claude-code-toolkit#automatic-installation-recommended): Quick setup with `./install.sh` (installs everything by default)
+- [GitHub Repository](https://github.com/cfircoo/claude-code-toolkit): Full source code and documentation
+
+## Core Components
+- [15 Skills](https://github.com/cfircoo/claude-code-toolkit/tree/main/skills): Domain expertise on demand (git, database, security, testing, planning, debugging)
+- [8 Agents](https://github.com/cfircoo/claude-code-toolkit/tree/main/agents): Autonomous specialists (git-ops, db-expert, pytest-writer, research, fullstack)
+- [12 Commands](https://github.com/cfircoo/claude-code-toolkit/tree/main/commands): Slash commands for workflows (/git-ship, /db, /ralph, /spec-interview)
+- [Security Hooks](https://github.com/cfircoo/claude-code-toolkit/tree/main/skills/damage-control): Damage-control system blocking destructive operations
+
+## Key Features
+- Safe automation: Blocks rm -rf, git reset --hard, reading .env files, destructive cloud CLI operations
+- Git branch protection: Blocks commit/push on main/master, enforces feature branch workflow
+- Ralph autonomous loop: Spec interview to PRD to atomic stories to autonomous execution
+- Modular design: Install all components or pick and choose
+- One-command install: git clone + ./install.sh
+
+## Author
+- [Cfir Carmeli](https://cfir.carmeli.me): Head of DevOps, 10+ years in infrastructure and automation
