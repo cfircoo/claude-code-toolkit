@@ -282,6 +282,22 @@ def main() -> None:
     if not command:
         sys.exit(0)
 
+    # Runtime check: block git commit/push while on main/master
+    if re.search(r'\bgit\s+(push|commit)\b', command):
+        try:
+            import subprocess
+            branch = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True, text=True, timeout=5
+            ).stdout.strip()
+            if branch in ("main", "master"):
+                op = "push" if "push" in command else "commit"
+                print(f"SECURITY: Blocked: git {op} while on '{branch}' branch — create a feature branch first", file=sys.stderr)
+                print(f"Command: {command[:100]}{'...' if len(command) > 100 else ''}", file=sys.stderr)
+                sys.exit(2)
+        except Exception:
+            pass  # If we can't detect branch, fall through to pattern checks
+
     # Check the command
     is_blocked, should_ask, reason = check_command(command, config)
 

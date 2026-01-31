@@ -58,8 +58,7 @@ bashToolPatterns:
     reason: Pushing directly to main/master — create a feature branch instead
 
   - pattern: '\bgit\s+push\s*$'
-    reason: Bare git push (may push to main/master) — specify branch explicitly
-    ask: true
+    reason: Bare git push blocked — specify remote and branch explicitly (e.g. git push origin feature-branch)
 
   - pattern: '\bgit\s+stash\s+clear\b'
     reason: git stash clear (deletes ALL stashes)
