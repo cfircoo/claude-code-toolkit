@@ -52,11 +52,11 @@ if [ -f "$PRD_FILE" ] && [ -f "$LAST_BRANCH_FILE" ]; then
     FOLDER_NAME=$(echo "$LAST_BRANCH" | sed 's|^ralph/||')
     ARCHIVE_FOLDER="$ARCHIVE_DIR/$DATE-$FOLDER_NAME"
 
-    echo "Archiving previous run: $LAST_BRANCH"
+    log "Archiving previous run: $LAST_BRANCH"
     mkdir -p "$ARCHIVE_FOLDER"
     [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
     [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
-    echo "   Archived to: $ARCHIVE_FOLDER"
+    log "   Archived to: $ARCHIVE_FOLDER"
 
     # Reset progress file for new run
     echo "# Ralph Progress Log" > "$PROGRESS_FILE"
@@ -82,10 +82,10 @@ fi
 
 # Print status summary from prd.json
 print_status() {
-  echo ""
-  echo "┌─────────────────────────────────────────────────┐"
-  echo "│  Story Status Summary                           │"
-  echo "├─────────────────────────────────────────────────┤"
+  log ""
+  log "┌─────────────────────────────────────────────────┐"
+  log "│  Story Status Summary                           │"
+  log "├─────────────────────────────────────────────────┤"
 
   # Support both new (status) and old (passes) schema
   local has_status=$(jq 'any(.userStories[]; .status != null)' "$PRD_FILE" 2>/dev/null || echo "false")
@@ -99,18 +99,18 @@ print_status() {
     local blocked=$(jq '[.userStories[] | select(.status == "blocked")] | length' "$PRD_FILE")
     local exhausted=$(jq '[.userStories[] | select(.status == "failed" and .attempts >= .maxAttempts)] | length' "$PRD_FILE" 2>/dev/null || echo "0")
 
-    printf "│  done: %-3s  pending: %-3s  failed: %-3s        │\n" "$done" "$pending" "$failed"
-    printf "│  in_progress: %-3s  blocked: %-3s               │\n" "$in_progress" "$blocked"
-    printf "│  total: %-3s  exhausted: %-3s                   │\n" "$total" "$exhausted"
+    printf "│  done: %-3s  pending: %-3s  failed: %-3s        │\n" "$done" "$pending" "$failed" | tee -a "$LOG_FILE"
+    printf "│  in_progress: %-3s  blocked: %-3s               │\n" "$in_progress" "$blocked" | tee -a "$LOG_FILE"
+    printf "│  total: %-3s  exhausted: %-3s                   │\n" "$total" "$exhausted" | tee -a "$LOG_FILE"
   else
     # Old schema with passes boolean
     local total=$(jq '.userStories | length' "$PRD_FILE")
     local passed=$(jq '[.userStories[] | select(.passes == true)] | length' "$PRD_FILE")
     local remaining=$((total - passed))
-    printf "│  passed: %-3s  remaining: %-3s  total: %-3s      │\n" "$passed" "$remaining" "$total"
+    printf "│  passed: %-3s  remaining: %-3s  total: %-3s      │\n" "$passed" "$remaining" "$total" | tee -a "$LOG_FILE"
   fi
 
-  echo "└─────────────────────────────────────────────────┘"
+  log "└─────────────────────────────────────────────────┘"
 }
 
 # Check if all remaining stories are exhausted (maxAttempts exceeded)
@@ -181,9 +181,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   sleep 2
 done
 
-echo ""
+log ""
 print_status
-echo ""
-echo "Ralph reached max iterations ($MAX_ITERATIONS) without completing all tasks."
-echo "Check $PROGRESS_FILE for status."
+log ""
+log "Ralph reached max iterations ($MAX_ITERATIONS) without completing all tasks."
+log "Check $PROGRESS_FILE for status."
 exit 1

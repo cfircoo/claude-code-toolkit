@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"userPromptSuffix\": \"\\n\\n[DELEGATION CHECK: Before starting this task, check if there is a subagent (Task tool) or skill (/skill) that fits this task. Use Explore agent for codebase exploration, Plan agent for design decisions, git-ops for commits/PRs, pytest-writer for tests, perplexity-research for web research. Delegate when appropriate to keep context clean and leverage specialized capabilities.]\"}'"
+            "command": "echo '{\"userPromptSuffix\": \"\\n\\n[DELEGATION CHECK: Before starting this task, check if there is a subagent (Task tool) or skill (/skill) that fits this task. Use Explore agent for codebase exploration, Plan agent for design decisions, git-ops for commits/PRs, pytest-writer for tests, perplexity-research for ANY web research (how does X work, what is Y, compare A vs B, find docs, latest version, best practices, troubleshoot errors — ALWAYS delegate to perplexity-research instead of using WebSearch). Delegate when appropriate to keep context clean and leverage specialized capabilities.]\"}'"
           }
         ]
       }

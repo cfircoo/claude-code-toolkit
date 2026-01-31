@@ -19,6 +19,14 @@ From the output, determine:
 - What's already staged vs unstaged
 - Recent commit message style in the repo
 
+## Step 2b: Branch Guard
+
+If current branch is `main` or `master`:
+```bash
+git checkout -b <descriptive-branch-name>
+```
+**Never commit directly to main/master.** Create a feature branch first based on the changes (e.g., `fix/login-bug`, `feat/add-filter`).
+
 ## Step 3: Stage Changes
 
 If nothing is staged, stage relevant files:

@@ -12,6 +12,11 @@ description: Git operations for committing, pushing, and opening PRs using gh CL
 - No `--no-verify` flag (skip hooks)
 - No `git commit --amend` on pushed commits
 
+**Never push directly to main/master:**
+- If current branch is `main` or `master`, create a new branch before committing/pushing
+- Use a descriptive branch name based on the changes (e.g., `fix/login-bug`, `feat/add-filter`)
+- Only push to feature/fix branches, never directly to the default branch
+
 **Always verify before acting:**
 - Check `git status` before staging
 - Check `git log` for commit style

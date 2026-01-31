@@ -54,6 +54,13 @@ bashToolPatterns:
   - pattern: '\bgit\s+push\s+(-[^\s]*)*-f\b'
     reason: git push -f (use --force-with-lease)
 
+  - pattern: '\bgit\s+push\b.*\b(origin|upstream)\s+(main|master)\b'
+    reason: Pushing directly to main/master — create a feature branch instead
+
+  - pattern: '\bgit\s+push\s*$'
+    reason: Bare git push (may push to main/master) — specify branch explicitly
+    ask: true
+
   - pattern: '\bgit\s+stash\s+clear\b'
     reason: git stash clear (deletes ALL stashes)
 

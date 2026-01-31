@@ -14,6 +14,8 @@ Determine:
 - Whether branch tracks a remote
 - How many commits ahead/behind
 
+**If current branch is `main` or `master`: STOP. Do not push. Inform the user they need to be on a feature branch. Offer to create one.**
+
 ## Step 2: Verify Commits to Push
 
 ```bash

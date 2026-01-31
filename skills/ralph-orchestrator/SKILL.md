@@ -184,6 +184,7 @@ What would you like to do?
 | tasks/progress.txt | Learnings between iterations |
 | tasks/test-log.md | Registry of all tests created per story |
 | tasks/review-notes.md | Ideas, edge cases, and suggestions after each story |
+| tasks/ralph.log | Live log of Ralph execution (tail -f to monitor) |
 | scripts/ralph.sh | Ralph execution script (in this skill folder) |
 | scripts/prompt.md | Iteration prompt template |
 
@@ -197,6 +198,9 @@ alias ralph='~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ra
 
 # Run with custom iteration limit
 ralph 5
+
+# Monitor Ralph in real-time (while running in background)
+tail -f tasks/ralph.log
 
 # Check story status (new schema)
 cat tasks/prd.json | jq '.userStories[] | {id, title, status, attempts}'
