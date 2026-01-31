@@ -282,8 +282,9 @@ def main() -> None:
     if not command:
         sys.exit(0)
 
-    # Runtime check: block git commit/push while on main/master
-    if re.search(r'\bgit\s+(push|commit)\b', command):
+    # Runtime check: block git commit/push while on main/master (allow tag pushes)
+    is_tag_push = re.search(r'\bgit\s+push\s+\S+\s+v[\d.]', command) or re.search(r'\bgit\s+tag\b', command)
+    if re.search(r'\bgit\s+(push|commit)\b', command) and not is_tag_push:
         try:
             import subprocess
             branch = subprocess.run(
