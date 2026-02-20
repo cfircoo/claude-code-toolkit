@@ -228,7 +228,7 @@ echo
 echo -e "${BLUE}→ Creating directories...${NC}"
 
 # Create directories
-mkdir -p "$CLAUDE_DIR"/{skills,agents,commands,hooks,scripts}
+mkdir -p "$CLAUDE_DIR"/{skills,agents,commands,hooks,scripts,images}
 
 echo -e "${GREEN}✓${NC} Directories created"
 
