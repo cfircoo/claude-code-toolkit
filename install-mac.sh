@@ -639,6 +639,90 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         fi
     }
 
+    # Function to configure Gemini API key (for Nano Banana image generation)
+    configure_google_api_key() {
+        # Check if jq is available
+        if ! command -v jq &> /dev/null; then
+            echo -e "${YELLOW}⚠${NC} jq not found - cannot configure API key"
+            return
+        fi
+
+        # Check if settings.json exists
+        if [ ! -f "$CLAUDE_DIR/settings.json" ]; then
+            echo '{}' > "$CLAUDE_DIR/settings.json"
+        fi
+
+        # Check if key already exists in settings.json
+        local existing_key=$(jq -r '.env.GEMINI_API_KEY // empty' "$CLAUDE_DIR/settings.json" 2>/dev/null)
+        if [ -n "$existing_key" ]; then
+            echo -e "${GREEN}✓${NC} Gemini API key already configured in settings.json"
+            return
+        fi
+
+        # Check if key exists in environment
+        local found_key="${GEMINI_API_KEY:-}"
+        local key_source="environment"
+
+        # If not in environment, search shell config files
+        if [ -z "$found_key" ]; then
+            local shell_configs=("$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile")
+            for config_file in "${shell_configs[@]}"; do
+                if [ -f "$config_file" ]; then
+                    local extracted=$(grep "GEMINI_API_KEY=" "$config_file" 2>/dev/null | head -1 | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d ' ')
+                    if [ -n "$extracted" ]; then
+                        found_key="$extracted"
+                        key_source="$config_file"
+                        break
+                    fi
+                fi
+            done
+        fi
+
+        # Function to add key to settings.json
+        add_google_key_to_settings() {
+            local key="$1"
+            local temp_file=$(mktemp)
+            jq --arg key "$key" '.env.GEMINI_API_KEY = $key' "$CLAUDE_DIR/settings.json" > "$temp_file"
+            if [ $? -eq 0 ]; then
+                mv "$temp_file" "$CLAUDE_DIR/settings.json"
+                echo -e "${GREEN}✓${NC} Added Gemini API key to settings.json"
+                return 0
+            else
+                rm -f "$temp_file"
+                echo -e "${RED}✗${NC} Failed to update settings.json"
+                return 1
+            fi
+        }
+
+        if [ -n "$found_key" ]; then
+            echo -e "${BLUE}ℹ${NC} Found GEMINI_API_KEY in $key_source"
+            if [ "$AUTO_YES" = true ]; then
+                add_google_key_to_settings "$found_key"
+            else
+                echo -n "  Copy to settings.json? (y/n): "
+                read -r response
+                if [[ "$response" =~ ^[Yy]$ ]]; then
+                    add_google_key_to_settings "$found_key"
+                fi
+            fi
+        else
+            echo -e "${YELLOW}⚠${NC} GEMINI_API_KEY not found"
+            echo -e "${DIM}   The generate-images skill requires a Gemini API key.${NC}"
+            echo -e "${DIM}   Get one at: https://aistudio.google.com/apikey${NC}"
+            if [ "$AUTO_YES" = true ]; then
+                echo -e "${DIM}   Skipping (auto mode) - configure later in ~/.claude/settings.json${NC}"
+                return
+            fi
+            echo -n "  Enter Gemini API key (or press Enter to skip): "
+            read -r user_key
+            if [ -n "$user_key" ]; then
+                add_google_key_to_settings "$user_key"
+            else
+                echo -e "${DIM}   Skipped - configure later in ~/.claude/settings.json${NC}"
+            fi
+        fi
+    }
+
     echo
     echo -e "${BLUE}→ Installing toolkit components...${NC}"
 
@@ -666,6 +750,8 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         copy_settings
         echo -e "${BLUE}Perplexity API Key:${NC}"
         configure_perplexity_key
+        echo -e "${BLUE}Gemini API Key (image generation):${NC}"
+        configure_google_api_key
 
     elif [[ "$install_choice" == "2" ]]; then
         # Select by folder
@@ -744,6 +830,13 @@ elif [[ "$install_choice" =~ ^[12]$ ]]; then
         echo -n "Configure Perplexity API key? (y/n): "
         read -r choice
         [[ "$choice" =~ ^[Yy]$ ]] && configure_perplexity_key
+
+        echo
+        echo -e "${BLUE}━━━ Gemini API Key ━━━${NC}"
+        echo -e "${DIM}Required for generate-images skill (Nano Banana image generation)${NC}"
+        echo -n "Configure Gemini API key? (y/n): "
+        read -r choice
+        [[ "$choice" =~ ^[Yy]$ ]] && configure_google_api_key
     fi
 else
     echo -e "${RED}✗${NC} Invalid choice. Exiting."
