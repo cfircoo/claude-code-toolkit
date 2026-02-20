@@ -67,6 +67,7 @@ When running in interactive mode (`-i`), the installer offers:
 - ✓ **Installs concise-mode hook** (brief responses, toggleable with `/concise`)
 - ✓ **Intelligently merges settings.json** (preserves your existing settings)
 - ✓ **Configures Perplexity API key** (searches environment and shell configs, or prompts for key)
+- ✓ **Configures Gemini API key** (for Nano Banana image generation)
 - ✓ Automatically backs up `hooks.json` and `settings.json` to `.bak` files
 
 ### Platform-Specific Installers
@@ -136,7 +137,7 @@ cp agents/git-ops.md ~/.claude/agents/
 
 ## What's Included
 
-### Skills (15)
+### Skills (16)
 
 Skills are modular capabilities that provide domain expertise on demand. They live in `~/.claude/skills/`.
 
@@ -155,6 +156,7 @@ Skills are modular capabilities that provide domain expertise on demand. They li
 | **create-agent-skills** | Guide to creating skills | Building modular capabilities |
 | **create-meta-prompts** | Claude-to-Claude pipeline prompts | Multi-stage workflows (research -> plan -> implement) |
 | **ralph-orchestrator** | Orchestrates Ralph autonomous agent loop — story-by-story execution with verification | Building features with spec → PRD → prd.json → autonomous execution loop |
+| **generate-images** | Image generation/editing via Nano Banana (Gemini) | Creating icons, banners, mockups, editing images |
 | **generate-prd** | Creates PRDs through guided discovery | Defining feature requirements |
 | **ralph-convert-prd** | Converts PRDs to atomic user stories | Preparing PRDs for Ralph execution |
 
@@ -173,7 +175,7 @@ Agents are specialized Claude instances that run autonomously in isolated contex
 | **fullstack-ui-designer** | Creates distinctive UI components | Frontend component design |
 | **fullstack-qa-debugger** | Validates integrations and catches errors | Testing and debugging frontends |
 
-### Commands (12)
+### Commands (13)
 
 Commands are slash-invoked prompts for common operations. They live in `~/.claude/commands/`.
 
@@ -189,6 +191,7 @@ Commands are slash-invoked prompts for common operations. They live in `~/.claud
 | `/install-toolkit` | Interactive installer - asks preferences then installs | `/install-toolkit [path]` |
 | `/ralph` | Orchestrate Ralph autonomous agent pipeline | `/ralph`, `/ralph status`, `/ralph execute` |
 | `/generate-prd` | Generate PRD for a new feature | `/generate-prd user-dashboard` |
+| `/generate-image` | Generate or edit images via Nano Banana | `/generate-image a logo for my app` |
 | `/ralph-convert-prd` | Convert PRD to Ralph prd.json format | `/ralph-convert-prd tasks/prd-feature.md` |
 
 ### Hooks
@@ -245,16 +248,24 @@ Python helper scripts for agents. They live in `~/.claude/scripts/`.
 | Script | Description | Used By |
 |--------|-------------|---------|
 | **perplexity_search.py** | Perplexity API wrapper for web search | perplexity-research agent |
+| **generate_image.py** | Nano Banana image generation via Gemini API | generate-images skill |
 
 **Dependencies:** Managed via inline PEP 723 metadata - `uv` auto-installs on first run (no pip needed).
 
-**API Key Setup:** The installer automatically:
-1. Checks if `PERPLEXITY_API_KEY` is in your environment
+**API Key Setup:** The installer automatically configures keys for both scripts:
+
+| Script | Env Variable | Get Key At |
+|--------|-------------|------------|
+| **perplexity_search.py** | `PERPLEXITY_API_KEY` | https://www.perplexity.ai/settings/api |
+| **generate_image.py** | `GEMINI_API_KEY` | https://aistudio.google.com/apikey |
+
+For each key, the installer:
+1. Checks if the key is in your environment
 2. Searches shell config files (`.bashrc`, `.zshrc`, `.profile`)
 3. Prompts for the key if not found
-4. Stores it in `~/.claude/settings.json` under `env.PERPLEXITY_API_KEY`
+4. Stores it in `~/.claude/settings.json` under `env`
 
-Get your API key at: https://www.perplexity.ai/settings/api
+**Note:** Gemini image generation requires billing enabled on your Google AI Studio account.
 
 ### Settings
 
@@ -265,6 +276,7 @@ The toolkit's `settings.json` includes these configurations (merged with your ex
 | **statusLine** | Terminal status bar showing model, git branch, context usage |
 | **env.ENABLE_TOOL_SEARCH** | Enables MCP lazy loading - tools load on-demand instead of all at once, saving context tokens |
 | **env.PERPLEXITY_API_KEY** | API key for perplexity-research agent (configured during install) |
+| **env.GEMINI_API_KEY** | API key for generate-images skill (configured during install) |
 
 ### Extras
 
@@ -394,6 +406,16 @@ cp ~/claude-code-toolkit/agents/git-ops.md .claude/agents/
 
 > Find documentation on SQLAlchemy 2.0 async sessions
 # Returns structured report with citations
+```
+
+### Image Generation
+
+```
+> /generate-image a minimalist logo for a task management app
+# Generates image using Nano Banana (Gemini) and saves to disk
+
+> /generate-image edit the hero banner to have a sunset background --edit assets/hero.png
+# Edits an existing image with natural language instructions
 ```
 
 ### Ralph Autonomous Agent Loop
