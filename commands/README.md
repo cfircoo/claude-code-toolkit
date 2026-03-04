@@ -88,10 +88,10 @@ Review PR #$1 with priority $2
 
 ## Creating Your Own
 
-Use the `create-slash-commands` skill for comprehensive guidance:
+Use the `manage-slash-commands` skill for comprehensive guidance:
 
 ```
-> Use the create-slash-commands skill to create a new command
+> Use the manage-slash-commands skill to create a new command
 ```
 
 Or manually:

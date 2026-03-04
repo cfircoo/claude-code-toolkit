@@ -97,10 +97,10 @@ Filter which tools trigger the hook:
 
 ## Creating Your Own
 
-Use the `create-hooks` skill for comprehensive guidance:
+Use the `manage-hooks` skill for comprehensive guidance:
 
 ```
-> Use the create-hooks skill to create a new hook
+> Use the manage-hooks skill to create a new hook
 ```
 
 ### Example: Desktop Notification

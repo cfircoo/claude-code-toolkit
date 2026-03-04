@@ -77,14 +77,22 @@ Be consistent within your skill. If you use `<workflow>`, don't also use `<proce
 </xml_structure_requirements>
 
 <yaml_requirements>
-<required_fields>
-```yaml
----
-name: skill-name-here
-description: What it does and when to use it (third person, specific triggers)
----
-```
-</required_fields>
+<frontmatter_fields>
+All fields are optional. Only `description` is recommended.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | No | Display name. If omitted, uses directory name. Lowercase, numbers, hyphens only (max 64 chars). |
+| `description` | Recommended | What the skill does and when to use it. Claude uses this for auto-discovery. If omitted, uses first paragraph of markdown content. |
+| `disable-model-invocation` | No | `true` = only user can invoke via `/name`. Use for side-effect skills. Default: `false`. |
+| `user-invocable` | No | `false` = hidden from `/` menu. Use for background knowledge. Default: `true`. |
+| `allowed-tools` | No | Tools Claude can use without per-use permission prompts when skill is active (e.g., `Read, Grep, Glob`). |
+| `argument-hint` | No | Autocomplete hint (e.g., `[issue-number]`, `[filename] [format]`). |
+| `model` | No | Model to use when skill is active. |
+| `context` | No | Set to `fork` to run in a forked subagent context. Skill content becomes the subagent's prompt. CLAUDE.md is also loaded. |
+| `agent` | No | Which subagent type to use when `context: fork` is set (`Explore`, `Plan`, `general-purpose`, or custom from `.claude/agents/`). Default: `general-purpose`. |
+| `hooks` | No | Hooks scoped to this skill's lifecycle. |
+</frontmatter_fields>
 
 <name_field>
 **Validation rules**:
@@ -92,7 +100,8 @@ description: What it does and when to use it (third person, specific triggers)
 - Lowercase letters, numbers, hyphens only
 - No XML tags
 - No reserved words: "anthropic", "claude"
-- Must match directory name exactly
+- If provided, should match directory name
+- If omitted, defaults to directory name
 
 **Examples**:
 - ✅ `process-pdfs`
@@ -108,37 +117,73 @@ description: What it does and when to use it (third person, specific triggers)
 - Non-empty, maximum 1024 characters
 - No XML tags
 - Third person (never first or second person)
-- Include what it does AND when to use it
+- Include what it does AND trigger phrases for when to use it
 
-**Critical rule**: Always write in third person.
-- ✅ "Processes Excel files and generates reports"
-- ❌ "I can help you process Excel files"
-- ❌ "You can use this to process Excel files"
+**Best practice**: Include specific quoted trigger phrases for reliable discovery:
+```yaml
+description: This skill should be used when the user asks to "create a hook", "add a PreToolUse hook", "validate tool use", or mentions hook events. Provides comprehensive hooks API guidance.
+```
 
-**Structure**: Include both capabilities and triggers.
-
-**Effective examples**:
+**Also effective**:
 ```yaml
 description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
 ```
 
-```yaml
-description: Analyze Excel spreadsheets, create pivot tables, generate charts. Use when analyzing Excel files, spreadsheets, tabular data, or .xlsx files.
-```
-
-```yaml
-description: Generate descriptive commit messages by analyzing git diffs. Use when the user asks for help writing commit messages or reviewing staged changes.
-```
-
 **Avoid**:
+- ❌ `"Helps with documents"` (vague, no triggers)
+- ❌ `"I can help you process Excel files"` (first person)
+- ❌ `"Processes data"` (too generic)
+</description_field>
+
+<invocation_control>
+Three invocation modes control who can trigger a skill:
+
+| Frontmatter | User can invoke | Claude can invoke | When loaded |
+|-------------|-----------------|-------------------|-------------|
+| (default) | Yes | Yes | Description always in context, full skill loads when invoked |
+| `disable-model-invocation: true` | Yes | No | Description NOT in context, full loads when user invokes |
+| `user-invocable: false` | No | Yes | Description always in context, full loads when invoked |
+
+**Use `disable-model-invocation: true` for:**
+- Deploy/ship actions
+- Commit/push workflows
+- Destructive operations
+- Anything with side effects you want to control timing of
+
+**Use `user-invocable: false` for:**
+- Background knowledge (legacy system context, coding conventions)
+- Skills that aren't meaningful as user commands
+</invocation_control>
+
+<content_types>
+Two types of skill content guide what to include:
+
+**Reference content** — conventions, patterns, domain knowledge. Runs inline alongside conversation:
 ```yaml
-description: Helps with documents
+---
+name: api-conventions
+description: API design patterns for this codebase
+---
+
+When writing API endpoints:
+- Use RESTful naming conventions
+- Return consistent error formats
 ```
 
+**Task content** — step-by-step actions, often with side effects:
 ```yaml
-description: Processes data
+---
+name: deploy
+description: Deploy the application to production
+disable-model-invocation: true
+---
+
+Deploy the application:
+1. Run the test suite
+2. Build the application
+3. Push to the deployment target
 ```
-</description_field>
+</content_types>
 </yaml_requirements>
 
 <naming_conventions>
@@ -147,7 +192,7 @@ Use **verb-noun convention** for skill names:
 <pattern name="create">
 Building/authoring tools
 
-Examples: `create-agent-skills`, `create-hooks`, `create-landing-pages`
+Examples: `manage-skills`, `manage-hooks`, `create-landing-pages`
 </pattern>
 
 <pattern name="manage">
@@ -284,16 +329,46 @@ Typical skill structure:
 
 ```
 skill-name/
-├── SKILL.md (main entry point, pure XML structure)
-├── references/ (optional, for progressive disclosure)
-│   ├── guide-1.md (pure XML structure)
-│   ├── guide-2.md (pure XML structure)
-│   └── examples.md (pure XML structure)
-└── scripts/ (optional, for utility scripts)
+├── SKILL.md           # Main instructions (required)
+├── template.md        # Template for Claude to fill in (optional)
+├── references/        # Detailed docs, loaded when needed (optional)
+│   ├── guide-1.md
+│   └── guide-2.md
+├── examples/          # Example outputs showing expected format (optional)
+│   └── sample.md
+└── scripts/           # Executable code Claude runs (optional)
     ├── validate.py
     └── process.py
 ```
+
+**For complex router-pattern skills**, also add:
+```
+├── workflows/         # Step-by-step procedures (optional)
+│   ├── create.md
+│   └── debug.md
+└── templates/         # Output structures to copy + fill (optional)
+    └── plan-template.md
+```
 </directory_structure>
+
+<skill_locations>
+Where you store a skill determines who can use it (higher priority wins):
+
+| Level | Path | Applies to |
+|-------|------|------------|
+| Enterprise | Managed settings | All users in organization |
+| Personal | `~/.claude/skills/<name>/SKILL.md` | All your projects |
+| Project | `.claude/skills/<name>/SKILL.md` | This project only |
+| Plugin | `<plugin>/skills/<name>/SKILL.md` | Where plugin is enabled |
+
+Nested `.claude/skills/` directories are auto-discovered (monorepo support). Skills from `--add-dir` directories are also loaded with live change detection.
+
+**Precedence**: When skills share the same name across levels, higher-priority locations win (enterprise > personal > project). Plugin skills use `plugin-name:skill-name` namespace, so they cannot conflict. If a skill and a command (`.claude/commands/`) share the same name, the skill takes precedence.
+
+**Commands merger**: `.claude/commands/*.md` files still work and support the same frontmatter. Skills are recommended since they support additional features like supporting files.
+
+**Character budget**: Skill descriptions consume ~2% of context window (fallback 16,000 chars). Too many skills may exceed this. Check with `/context`. Override with `SLASH_COMMAND_TOOL_CHAR_BUDGET` env var.
+</skill_locations>
 </file_organization>
 
 <anti_patterns>
@@ -360,7 +435,7 @@ Every skill must have: `<objective>`, `<quick_start>`, and `<success_criteria>` 
 <validation_checklist>
 Before finalizing a skill, verify:
 
-- ✅ YAML frontmatter valid (name matches directory, description in third person)
+- ✅ YAML frontmatter valid (description in third person with trigger phrases)
 - ✅ No markdown headings in body (pure XML structure)
 - ✅ Required tags present: objective, quick_start, success_criteria
 - ✅ Conditional tags appropriate for complexity level
@@ -369,4 +444,7 @@ Before finalizing a skill, verify:
 - ✅ Reference files use pure XML structure
 - ✅ File paths use forward slashes
 - ✅ Descriptive file names
+- ✅ Invocation control set appropriately (disable-model-invocation for side-effect skills)
+- ✅ Content type matches invocation mode (reference = inline, task = often user-only)
+- ✅ `allowed-tools` set if skill should restrict tool access
 </validation_checklist>

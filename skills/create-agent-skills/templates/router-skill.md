@@ -1,6 +1,9 @@
 ---
 name: {{SKILL_NAME}}
-description: {{What it does}} Use when {{trigger conditions}}.
+description: This skill should be used when the user asks to "{{trigger phrase 1}}", "{{trigger phrase 2}}", or mentions {{keywords}}. {{What it does}}.
+# disable-model-invocation: true   # Uncomment for user-only skills
+# allowed-tools: Read, Grep, Glob  # Uncomment to restrict tool access
+# argument-hint: [{{hint}}]        # Uncomment if skill takes arguments
 ---
 
 <essential_principles>

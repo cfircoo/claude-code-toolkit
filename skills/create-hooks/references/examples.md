@@ -1,6 +1,6 @@
 # Working Examples
 
-Real-world hook configurations ready to use.
+Real-world hook configurations ready to use. All configurations go in a settings file (`~/.claude/settings.json` for global, `.claude/settings.json` for project).
 
 ## Desktop Notifications
 
@@ -10,10 +10,11 @@ Real-world hook configurations ready to use.
   "hooks": {
     "Notification": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "osascript -e 'display notification \"Claude needs your input\" with title \"Claude Code\" sound name \"Glass\"'"
+            "command": "osascript -e 'display notification \"Claude Code needs your attention\" with title \"Claude Code\"'"
           }
         ]
       }
@@ -28,10 +29,11 @@ Real-world hook configurations ready to use.
   "hooks": {
     "Notification": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "notify-send 'Claude Code' 'Awaiting your input' --urgency=normal"
+            "command": "notify-send 'Claude Code' 'Claude Code needs your attention'"
           }
         ]
       }
@@ -40,12 +42,32 @@ Real-world hook configurations ready to use.
 }
 ```
 
-### Play sound on notification
+### Windows notification (PowerShell)
 ```json
 {
   "hooks": {
     "Notification": [
       {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -Command \"[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.MessageBox]::Show('Claude Code needs your attention', 'Claude Code')\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Play sound on notification (macOS)
+```json
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -66,13 +88,13 @@ Real-world hook configurations ready to use.
 ```json
 {
   "hooks": {
-    "PreToolUse": [
+    "PostToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '\"[\" + (.timestamp // now | todate) + \"] \" + .tool_input.command + \" - \" + (.tool_input.description // \"No description\")' >> ~/.claude/bash-log.txt"
+            "command": "jq -r '.tool_input.command' >> ~/.claude/command-log.txt"
           }
         ]
       }
@@ -119,22 +141,41 @@ Real-world hook configurations ready to use.
 }
 ```
 
+### Audit configuration changes
+```json
+{
+  "hooks": {
+    "ConfigChange": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c '{timestamp: now | todate, source: .source, file: .file_path}' >> ~/claude-config-audit.log"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ---
 
 ## Code Quality
 
-### Auto-format after edits
+### Auto-format after edits (format only the changed file)
 ```json
 {
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "prettier --write \"$(echo {} | jq -r '.tool_input.file_path')\" 2>/dev/null || true",
-            "timeout": 10000
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write 2>/dev/null || true",
+            "timeout": 10
           }
         ]
       }
@@ -153,7 +194,7 @@ Real-world hook configurations ready to use.
         "hooks": [
           {
             "type": "command",
-            "command": "eslint \"$(echo {} | jq -r '.tool_input.file_path')\" --fix 2>/dev/null || true"
+            "command": "jq -r '.tool_input.file_path' | xargs eslint --fix 2>/dev/null || true"
           }
         ]
       }
@@ -162,7 +203,46 @@ Real-world hook configurations ready to use.
 }
 ```
 
-### Run tests before stopping
+### Format by file type
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-by-type.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`.claude/hooks/format-by-type.sh`:
+```bash
+#!/bin/bash
+input=$(cat)
+file_path=$(echo "$input" | jq -r '.tool_input.file_path')
+
+case "$file_path" in
+  *.js|*.jsx|*.ts|*.tsx)
+    npx prettier --write "$file_path" 2>/dev/null
+    ;;
+  *.py)
+    black "$file_path" 2>/dev/null
+    ;;
+  *.go)
+    gofmt -w "$file_path" 2>/dev/null
+    ;;
+esac
+exit 0
+```
+
+### Verify tests pass before stopping (prompt-based)
 ```json
 {
   "hooks": {
@@ -170,8 +250,8 @@ Real-world hook configurations ready to use.
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "/path/to/check-tests.sh"
+            "type": "prompt",
+            "prompt": "Check if all tasks are complete. If not, respond with {\"ok\": false, \"reason\": \"what remains to be done\"}."
           }
         ]
       }
@@ -180,26 +260,30 @@ Real-world hook configurations ready to use.
 }
 ```
 
-`check-tests.sh`:
-```bash
-#!/bin/bash
-cd "$cwd" || exit 1
-
-# Run tests
-npm test > /dev/null 2>&1
-
-if [ $? -eq 0 ]; then
-  echo '{"decision": "approve", "reason": "All tests passing"}'
-else
-  echo '{"decision": "block", "reason": "Tests are failing. Please fix before stopping.", "systemMessage": "Run npm test to see failures"}'
-fi
+### Verify tests pass before stopping (agent-based)
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Verify that all unit tests pass. Run the test suite and check the results. $ARGUMENTS",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ---
 
 ## Safety and Validation
 
-### Block destructive commands
+### Block destructive commands (exit code method)
 ```json
 {
   "hooks": {
@@ -209,7 +293,7 @@ fi
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/check-command-safety.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-command-safety.sh"
           }
         ]
       }
@@ -218,31 +302,65 @@ fi
 }
 ```
 
-`check-command-safety.sh`:
+`.claude/hooks/check-command-safety.sh`:
 ```bash
 #!/bin/bash
-input=$(cat)
-command=$(echo "$input" | jq -r '.tool_input.command')
+INPUT=$(cat)
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command')
 
 # Check for dangerous patterns
-if [[ "$command" == *"rm -rf /"* ]] || \
-   [[ "$command" == *"mkfs"* ]] || \
-   [[ "$command" == *"> /dev/sda"* ]]; then
-  echo '{"decision": "block", "reason": "Destructive command detected", "systemMessage": "This command could cause data loss"}'
-  exit 0
+if echo "$COMMAND" | grep -qE "rm -rf /|mkfs|> /dev/sd"; then
+  echo "Blocked: destructive command detected" >&2
+  exit 2
 fi
 
 # Check for force push to main
-if [[ "$command" == *"git push"*"--force"* ]] && \
-   [[ "$command" == *"main"* || "$command" == *"master"* ]]; then
-  echo '{"decision": "block", "reason": "Force push to main branch blocked", "systemMessage": "Use a feature branch instead"}'
-  exit 0
+if echo "$COMMAND" | grep -qE "git push.*--force.*(main|master)"; then
+  echo "Blocked: force push to main branch" >&2
+  exit 2
 fi
 
-echo '{"decision": "approve", "reason": "Command is safe"}'
+exit 0
 ```
 
-### Validate commit messages
+### Block edits to protected files
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`.claude/hooks/protect-files.sh`:
+```bash
+#!/bin/bash
+INPUT=$(cat)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+
+PROTECTED_PATTERNS=(".env" "package-lock.json" ".git/")
+
+for pattern in "${PROTECTED_PATTERNS[@]}"; do
+  if [[ "$FILE_PATH" == *"$pattern"* ]]; then
+    echo "Blocked: $FILE_PATH matches protected pattern '$pattern'" >&2
+    exit 2
+  fi
+done
+
+exit 0
+```
+
+### Validate commit messages (prompt-based)
 ```json
 {
   "hooks": {
@@ -252,60 +370,37 @@ echo '{"decision": "approve", "reason": "Command is safe"}'
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Check if this is a git commit command: $ARGUMENTS\n\nIf it's a git commit, validate the message follows conventional commits format (feat|fix|docs|refactor|test|chore): description\n\nIf invalid format: {\"decision\": \"block\", \"reason\": \"Commit message must follow conventional commits\"}\nIf valid or not a commit: {\"decision\": \"approve\", \"reason\": \"ok\"}"
+            "prompt": "Check if this is a git commit command. If so, validate the message follows conventional commits format (feat|fix|docs|refactor|test|chore): description. $ARGUMENTS"
           }
         ]
       }
     ]
   }
 }
-```
-
-### Block writes to critical files
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/check-protected-files.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-`check-protected-files.sh`:
-```bash
-#!/bin/bash
-input=$(cat)
-file_path=$(echo "$input" | jq -r '.tool_input.file_path')
-
-# Protected files
-protected_files=(
-  "package-lock.json"
-  ".env.production"
-  "credentials.json"
-)
-
-for protected in "${protected_files[@]}"; do
-  if [[ "$file_path" == *"$protected"* ]]; then
-    echo "{\"decision\": \"block\", \"reason\": \"Cannot modify $protected\", \"systemMessage\": \"This file is protected from automated changes\"}"
-    exit 0
-  fi
-done
-
-echo '{"decision": "approve", "reason": "File is not protected"}'
 ```
 
 ---
 
 ## Context Injection
+
+### Re-inject context after compaction
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Reminder: use Bun, not npm. Run bun test before committing. Current sprint: auth refactor.'"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ### Load sprint context at session start
 ```json
@@ -316,7 +411,7 @@ echo '{"decision": "approve", "reason": "File is not protected"}'
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/load-sprint-context.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/load-context.sh"
           }
         ]
       }
@@ -325,14 +420,11 @@ echo '{"decision": "approve", "reason": "File is not protected"}'
 }
 ```
 
-`load-sprint-context.sh`:
+`.claude/hooks/load-context.sh`:
 ```bash
 #!/bin/bash
-
-# Read sprint info from file
 sprint_info=$(cat "$CLAUDE_PROJECT_DIR/.sprint-context.txt" 2>/dev/null || echo "No sprint context available")
 
-# Return as SessionStart context
 jq -n \
   --arg context "$sprint_info" \
   '{
@@ -352,125 +444,13 @@ jq -n \
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$cwd\" && git branch --show-current | jq -Rs '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": (\"Current branch: \" + .)}}'"
+            "command": "git branch --show-current 2>/dev/null | jq -Rs '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": (\"Current branch: \" + .)}}'"
           }
         ]
       }
     ]
   }
 }
-```
-
-### Load environment info
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Environment: '$(hostname)'\\nNode version: '$(node --version 2>/dev/null || echo 'not installed')'\\nPython version: '$(python3 --version 2>/dev/null || echo 'not installed)'\"}}'"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
----
-
-## Workflow Automation
-
-### Auto-commit after major changes
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/auto-commit.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-`auto-commit.sh`:
-```bash
-#!/bin/bash
-cd "$cwd" || exit 1
-
-# Check if there are changes
-if ! git diff --quiet; then
-  git add -A
-  git commit -m "chore: auto-commit from claude session" --no-verify
-  echo '{"systemMessage": "Changes auto-committed"}'
-fi
-```
-
-### Update documentation after code changes
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/update-docs.sh",
-            "timeout": 30000
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Run pre-commit hooks
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/check-pre-commit.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-`check-pre-commit.sh`:
-```bash
-#!/bin/bash
-input=$(cat)
-command=$(echo "$input" | jq -r '.tool_input.command')
-
-# If git commit, run pre-commit hooks first
-if [[ "$command" == *"git commit"* ]]; then
-  pre-commit run --all-files > /dev/null 2>&1
-
-  if [ $? -ne 0 ]; then
-    echo '{"decision": "block", "reason": "Pre-commit hooks failed", "systemMessage": "Fix formatting/linting issues first"}'
-    exit 0
-  fi
-fi
-
-echo '{"decision": "approve", "reason": "ok"}'
 ```
 
 ---
@@ -486,7 +466,7 @@ echo '{"decision": "approve", "reason": "ok"}'
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/archive-session.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/archive-session.sh"
           }
         ]
       }
@@ -495,22 +475,37 @@ echo '{"decision": "approve", "reason": "ok"}'
 }
 ```
 
-`archive-session.sh`:
+`.claude/hooks/archive-session.sh`:
 ```bash
 #!/bin/bash
 input=$(cat)
 transcript_path=$(echo "$input" | jq -r '.transcript_path')
 session_id=$(echo "$input" | jq -r '.session_id')
 
-# Create archive directory
 archive_dir="$HOME/.claude/archives"
 mkdir -p "$archive_dir"
 
-# Copy transcript with timestamp
 timestamp=$(date +%Y%m%d-%H%M%S)
-cp "$transcript_path" "$archive_dir/${timestamp}-${session_id}.jsonl"
+cp "$transcript_path" "$archive_dir/${timestamp}-${session_id}.jsonl" 2>/dev/null || true
+```
 
-echo "Session archived to $archive_dir"
+### Clean up temp files on /clear
+```json
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f /tmp/claude-scratch-*.txt"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ### Save session stats
@@ -535,7 +530,7 @@ echo "Session archived to $archive_dir"
 
 ## Advanced Patterns
 
-### Intelligent stop logic
+### Stop hook with infinite loop prevention
 ```json
 {
   "hooks": {
@@ -543,9 +538,8 @@ echo "Session archived to $archive_dir"
       {
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Review the conversation: $ARGUMENTS\n\nCheck if:\n1. All user-requested tasks are complete\n2. Tests are passing (if code changes made)\n3. No errors that need fixing\n4. Documentation updated (if applicable)\n\nIf incomplete: {\"decision\": \"block\", \"reason\": \"specific issue\", \"systemMessage\": \"what needs to be done\"}\n\nIf complete: {\"decision\": \"approve\", \"reason\": \"all tasks done\"}\n\nIMPORTANT: If stop_hook_active is true, return {\"decision\": undefined} to avoid infinite loop",
-            "timeout": 30000
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-before-stop.sh"
           }
         ]
       }
@@ -554,7 +548,29 @@ echo "Session archived to $archive_dir"
 }
 ```
 
-### Chain multiple hooks
+`.claude/hooks/check-before-stop.sh`:
+```bash
+#!/bin/bash
+INPUT=$(cat)
+
+# CRITICAL: Prevent infinite loops
+if [ "$(echo "$INPUT" | jq -r '.stop_hook_active')" = "true" ]; then
+  exit 0
+fi
+
+# Run tests
+cd "$(echo "$INPUT" | jq -r '.cwd')" || exit 0
+npm test > /dev/null 2>&1
+
+if [ $? -eq 0 ]; then
+  exit 0  # Tests pass, allow stop
+else
+  echo "Tests are failing. Please fix before stopping." >&2
+  exit 2  # Block stop
+fi
+```
+
+### Chain multiple hooks on same event
 ```json
 {
   "hooks": {
@@ -564,15 +580,11 @@ echo "Session archived to $archive_dir"
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'First hook' >> /tmp/hook-chain.log"
+            "command": "jq -r '.tool_input.command' >> ~/bash-log.txt"
           },
           {
             "type": "command",
-            "command": "echo 'Second hook' >> /tmp/hook-chain.log"
-          },
-          {
-            "type": "prompt",
-            "prompt": "Final validation: $ARGUMENTS"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-safety.sh"
           }
         ]
       }
@@ -581,19 +593,19 @@ echo "Session archived to $archive_dir"
 }
 ```
 
-Hooks execute in order. First block stops the chain.
+Hooks execute in order within a matcher block. First block stops the chain.
 
-### Conditional execution based on file type
+### Log all GitHub MCP tool calls
 ```json
 {
   "hooks": {
-    "PostToolUse": [
+    "PreToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "mcp__github__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/format-by-type.sh"
+            "command": "echo \"GitHub tool called: $(jq -r '.tool_name')\" >&2"
           }
         ]
       }
@@ -602,31 +614,7 @@ Hooks execute in order. First block stops the chain.
 }
 ```
 
-`format-by-type.sh`:
-```bash
-#!/bin/bash
-input=$(cat)
-file_path=$(echo "$input" | jq -r '.tool_input.file_path')
-
-case "$file_path" in
-  *.js|*.jsx|*.ts|*.tsx)
-    prettier --write "$file_path"
-    ;;
-  *.py)
-    black "$file_path"
-    ;;
-  *.go)
-    gofmt -w "$file_path"
-    ;;
-esac
-```
-
----
-
-## Project-Specific Hooks
-
-Use `$CLAUDE_PROJECT_DIR` for project-specific hooks:
-
+### Project-specific hooks with $CLAUDE_PROJECT_DIR
 ```json
 {
   "hooks": {
@@ -635,7 +623,7 @@ Use `$CLAUDE_PROJECT_DIR` for project-specific hooks:
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/init-session.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/init-session.sh"
           }
         ]
       }
@@ -646,7 +634,7 @@ Use `$CLAUDE_PROJECT_DIR` for project-specific hooks:
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/validate-changes.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-changes.sh"
           }
         ]
       }

@@ -1,26 +1,19 @@
 ---
-name: create-agent-skills
-description: Expert guidance for creating, writing, building, and refining Claude Code Skills. Use when working with SKILL.md files, authoring new skills, improving existing skills, or understanding skill structure and best practices.
+name: manage-skills
+description: This skill should be used when the user asks to "create a skill", "build a new skill", "write a SKILL.md", "improve a skill", "update a skill", "audit a skill", "verify a skill", or mentions skill structure, skill best practices, or skill authoring. Provides expert guidance for creating, updating, auditing, and managing Claude Code Skills.
 ---
 
 <essential_principles>
-## How Skills Work
+Skills are modular, filesystem-based capabilities that provide domain expertise on demand. They follow the [Agent Skills](https://agentskills.io) open standard. Custom slash commands (`.claude/commands/`) have been merged into skills — existing commands keep working, but skills add directory support, frontmatter options, and auto-discovery.
 
-Skills are modular, filesystem-based capabilities that provide domain expertise on demand. This skill teaches how to create effective skills.
+**1. Skills Are Prompts** — All prompting best practices apply. Be clear, be direct, use XML structure. Assume Claude is smart — only add context Claude doesn't have.
 
-### 1. Skills Are Prompts
-
-All prompting best practices apply. Be clear, be direct, use XML structure. Assume Claude is smart - only add context Claude doesn't have.
-
-### 2. SKILL.md Is Always Loaded
-
-When a skill is invoked, Claude reads SKILL.md. Use this guarantee:
+**2. SKILL.md Is Always Loaded** — When a skill is invoked, Claude reads SKILL.md. Use this guarantee:
 - Essential principles go in SKILL.md (can't be skipped)
 - Workflow-specific content goes in workflows/
 - Reusable knowledge goes in references/
 
-### 3. Router Pattern for Complex Skills
-
+**3. Router Pattern for Complex Skills:**
 ```
 skill-name/
 ├── SKILL.md              # Router + principles
@@ -32,26 +25,29 @@ skill-name/
 
 SKILL.md asks "what do you want to do?" → routes to workflow → workflow specifies which references to read.
 
-**When to use each folder:**
-- **workflows/** - Multi-step procedures Claude follows
-- **references/** - Domain knowledge Claude reads for context
-- **templates/** - Consistent output structures Claude copies and fills (plans, specs, configs)
-- **scripts/** - Executable code Claude runs as-is (deploy, setup, API calls)
+- **workflows/** — Multi-step procedures Claude follows
+- **references/** — Domain knowledge Claude reads for context
+- **templates/** — Consistent output structures Claude copies and fills (plans, specs, configs)
+- **scripts/** — Executable code Claude runs as-is (deploy, setup, API calls, data processing)
 
-### 4. Pure XML Structure
+**4. Pure XML Structure** — No markdown headings (#, ##, ###) in skill body. Use semantic XML tags (`<objective>`, `<process>`, `<success_criteria>`). Keep markdown formatting within content (bold, lists, code blocks).
 
-No markdown headings (#, ##, ###) in skill body. Use semantic XML tags:
-```xml
-<objective>...</objective>
-<process>...</process>
-<success_criteria>...</success_criteria>
-```
+**5. Progressive Disclosure** — SKILL.md under 500 lines. Split detailed content into reference files. Load only what's needed for the current workflow.
 
-Keep markdown formatting within content (bold, lists, code blocks).
+**6. Two Types of Skill Content:**
+- **Reference content** — conventions, patterns, domain knowledge. Runs inline alongside conversation.
+- **Task content** — step-by-step actions with side effects. Often set `disable-model-invocation: true` so only users trigger it. Task skills often use `context: fork` to run in a subagent.
 
-### 5. Progressive Disclosure
+**7. Invocation Control** — Three modes via frontmatter:
+- **Default** — both user (`/skill-name`) and Claude can invoke
+- **`disable-model-invocation: true`** — user-only (for deploy, commit, destructive actions)
+- **`user-invocable: false`** — Claude-only (for background knowledge skills)
 
-SKILL.md under 500 lines. Split detailed content into reference files. Load only what's needed for the current workflow.
+**8. Subagent Execution** — Add `context: fork` to run a skill in an isolated subagent. The skill content becomes the subagent's prompt (no access to conversation history). CLAUDE.md is also loaded. The `agent` field selects the execution environment (`Explore`, `Plan`, `general-purpose`, or custom from `.claude/agents/`). Default: `general-purpose`. See [references/advanced-patterns.md](references/advanced-patterns.md).
+
+**9. Tool Restriction** — `allowed-tools` limits which tools Claude can use when a skill is active. Supports tool-specific patterns: `Bash(gh *)` allows only `gh` commands. Your permission settings still govern all other tools. You can also restrict Claude's skill access via permission rules: `Skill(name)` for exact match, `Skill(name *)` for prefix match.
+
+**10. Extended Thinking** — Include the word "ultrathink" anywhere in skill content to enable extended thinking mode.
 </essential_principles>
 
 <intake>
@@ -95,8 +91,6 @@ What would you like to do?
 </routing>
 
 <quick_reference>
-## Skill Structure Quick Reference
-
 **Simple skill (single file):**
 ```yaml
 ---
@@ -136,20 +130,16 @@ scripts/:
 </quick_reference>
 
 <reference_index>
-## Domain Knowledge
-
 All in `references/`:
 
 **Structure:** recommended-structure.md, skill-structure.md
 **Principles:** core-principles.md, be-clear-and-direct.md, use-xml-tags.md
 **Patterns:** common-patterns.md, workflows-and-validation.md
 **Assets:** using-templates.md, using-scripts.md
-**Advanced:** executable-code.md, api-security.md, iteration-and-testing.md
+**Advanced:** advanced-patterns.md, executable-code.md, api-security.md, iteration-and-testing.md
 </reference_index>
 
 <workflows_index>
-## Workflows
-
 All in `workflows/`:
 
 | Workflow | Purpose |
@@ -167,17 +157,39 @@ All in `workflows/`:
 </workflows_index>
 
 <yaml_requirements>
-## YAML Frontmatter
+Only `description` is recommended. All other fields are optional:
 
-Required fields:
 ```yaml
 ---
-name: skill-name          # lowercase-with-hyphens, matches directory
-description: ...          # What it does AND when to use it (third person)
+name: skill-name                    # Optional. Defaults to directory name. Lowercase, hyphens, max 64 chars.
+description: ...                    # Recommended. What it does + trigger phrases. Fallback: first paragraph of content.
+disable-model-invocation: false     # true = user-only invocation (for deploy, commit, etc.)
+user-invocable: true                # false = Claude-only (background knowledge, hide from / menu)
+allowed-tools: Read, Grep, Glob     # Tools granted without per-use permission prompts
+argument-hint: [issue-number]       # Autocomplete hint for arguments
+model: sonnet                       # Model to use when skill is active
+context: fork                       # Run in forked subagent context. SKILL.md content becomes the prompt. CLAUDE.md also loads.
+agent: Explore                      # Subagent type when context: fork (Explore, Plan, general-purpose, or custom from .claude/agents/). Default: general-purpose.
+hooks: ...                          # Hooks scoped to skill lifecycle
 ---
 ```
 
-Name conventions: `create-*`, `manage-*`, `setup-*`, `generate-*`, `build-*`
+**String substitutions** in skill content: DOLLAR+ARGUMENTS, DOLLAR+ARGUMENTS[N] / DOLLAR+N, DOLLAR+CLAUDE_SESSION_ID. Dynamic shell injection: BANG + backtick-wrapped command. See [references/advanced-patterns.md](references/advanced-patterns.md) for exact syntax.
+
+**Description best practice** — include specific trigger phrases:
+```yaml
+description: This skill should be used when the user asks to "create a hook", "add a PreToolUse hook", or mentions hook events. Provides comprehensive hooks API guidance.
+```
+
+**Name conventions:** `create-*`, `manage-*`, `setup-*`, `generate-*`, `build-*`
+
+**Skill locations** (higher priority wins; skills beat commands with same name):
+| Level | Path |
+|-------|------|
+| Enterprise | Managed settings |
+| Personal | `~/.claude/skills/<name>/SKILL.md` |
+| Project | `.claude/skills/<name>/SKILL.md` |
+| Plugin | `<plugin>/skills/<name>/SKILL.md` |
 </yaml_requirements>
 
 <success_criteria>
@@ -189,4 +201,6 @@ A well-structured skill:
 - Keeps SKILL.md under 500 lines
 - Asks minimal clarifying questions only when truly needed
 - Has been tested with real usage
+- Configures invocation control appropriately (disable-model-invocation for side-effect skills)
+- Uses trigger phrases in description for reliable discovery
 </success_criteria>

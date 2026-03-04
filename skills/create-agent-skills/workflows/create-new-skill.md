@@ -6,6 +6,7 @@
 2. references/skill-structure.md
 3. references/core-principles.md
 4. references/use-xml-tags.md
+5. references/advanced-patterns.md
 </required_reading>
 
 <process>
@@ -87,7 +88,24 @@ Factors favoring router pattern:
 
 See references/recommended-structure.md for templates.
 
-## Step 4: Create Directory
+## Step 4: Configure Invocation and Behavior
+
+Ask (using AskUserQuestion if appropriate):
+
+**Invocation mode:**
+1. **Both user and Claude** (default) — Claude auto-discovers and user can `/invoke`
+2. **User-only** (`disable-model-invocation: true`) — for deploy, commit, destructive actions
+3. **Claude-only** (`user-invocable: false`) — background knowledge, not a user action
+
+**Additional options to consider:**
+- Does the skill take arguments? → Add `argument-hint`
+- Should it restrict tools? → Add `allowed-tools`
+- Should it run in isolation? → Add `context: fork` + `agent`
+- Does it need dynamic data? → Use `!` backtick commands or `$ARGUMENTS`
+
+See references/advanced-patterns.md for details on each pattern.
+
+## Step 5: Create Directory
 
 ```bash
 mkdir -p ~/.claude/skills/{skill-name}
@@ -99,23 +117,37 @@ mkdir -p ~/.claude/skills/{skill-name}/templates  # for output structures
 mkdir -p ~/.claude/skills/{skill-name}/scripts    # for reusable code
 ```
 
-## Step 5: Write SKILL.md
+## Step 6: Write SKILL.md
+
+**YAML frontmatter** (all fields optional, `description` recommended):
+```yaml
+---
+name: skill-name                    # Optional, defaults to directory name
+description: This skill should be used when the user asks to "trigger phrase"... # Use trigger phrases
+disable-model-invocation: true      # If user-only (omit if default)
+user-invocable: false               # If Claude-only (omit if default)
+allowed-tools: Read, Grep           # If restricting tools (omit if default)
+argument-hint: [arg-name]           # If skill takes arguments (omit if none)
+context: fork                       # If running in subagent (omit if inline)
+agent: Explore                      # If using specific agent type (omit if default)
+---
+```
 
 **Simple skill:** Write complete skill file with:
-- YAML frontmatter (name, description)
+- YAML frontmatter with trigger-phrase description
 - `<objective>`
 - `<quick_start>`
 - Content sections with pure XML
 - `<success_criteria>`
 
 **Complex skill:** Write router with:
-- YAML frontmatter
+- YAML frontmatter with trigger-phrase description
 - `<essential_principles>` (inline, unavoidable)
 - `<intake>` (question to ask user)
 - `<routing>` (maps answers to workflows)
 - `<reference_index>` and `<workflows_index>`
 
-## Step 6: Write Workflows (if complex)
+## Step 7: Write Workflows (if complex)
 
 For each workflow:
 ```xml
@@ -132,26 +164,28 @@ How to know this workflow is done
 </success_criteria>
 ```
 
-## Step 7: Write References (if needed)
+## Step 8: Write References (if needed)
 
 Domain knowledge that:
 - Multiple workflows might need
 - Doesn't change based on workflow
 - Contains patterns, examples, technical details
 
-## Step 8: Validate Structure
+## Step 9: Validate Structure
 
 Check:
 - [ ] YAML frontmatter valid
-- [ ] Name matches directory (lowercase-with-hyphens)
-- [ ] Description says what it does AND when to use it (third person)
+- [ ] Description uses trigger phrases and third person
+- [ ] Invocation control set appropriately (disable-model-invocation for side-effect skills)
 - [ ] No markdown headings (#) in body - use XML tags
 - [ ] Required tags present: objective, quick_start, success_criteria
 - [ ] All referenced files exist
 - [ ] SKILL.md under 500 lines
 - [ ] XML tags properly closed
+- [ ] `allowed-tools` set if tool restriction needed
+- [ ] `$ARGUMENTS` used correctly if skill takes arguments
 
-## Step 9: Create Slash Command
+## Step 10: Create Slash Command (optional)
 
 ```bash
 cat > ~/.claude/commands/{skill-name}.md << 'EOF'
@@ -165,7 +199,9 @@ Invoke the {skill-name} skill for: $ARGUMENTS
 EOF
 ```
 
-## Step 10: Test
+**Note:** Skills already create `/skill-name` automatically. A separate slash command is only needed for custom argument handling or tool restrictions.
+
+## Step 11: Test
 
 Invoke the skill and observe:
 - Does it ask the right intake question?
@@ -180,12 +216,13 @@ Iterate based on real usage, not assumptions.
 Skill is complete when:
 - [ ] Requirements gathered with appropriate questions
 - [ ] API research done if external service involved
+- [ ] Invocation mode chosen and frontmatter configured
 - [ ] Directory structure correct
-- [ ] SKILL.md has valid frontmatter
+- [ ] SKILL.md has valid frontmatter with trigger-phrase description
 - [ ] Essential principles inline (if complex skill)
 - [ ] Intake question routes to correct workflow
 - [ ] All workflows have required_reading + process + success_criteria
 - [ ] References contain reusable domain knowledge
-- [ ] Slash command exists and works
 - [ ] Tested with real invocation
+- [ ] Discovery tested (does Claude find it when expected?)
 </success_criteria>

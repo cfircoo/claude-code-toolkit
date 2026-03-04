@@ -152,11 +152,11 @@ Skill works fine without them - proceeds with general planning. But tasks will b
 
 ### Creating a Domain Skill
 
-Domain skills are created with [create-agent-skills](../create-agent-skills/) skill.
+Domain skills are created with [manage-skills](../manage-skills/) skill.
 
 **Process:**
 
-1. `Skill("create-agent-skills")` → choose "Build a new skill"
+1. `Skill("manage-skills")` → choose "Build a new skill"
 2. Name: `build-[your-domain]`
 3. Description: "Build [framework/platform] apps. Full lifecycle - build, debug, test, optimize, ship."
 4. Ask it to create exhaustive references covering:

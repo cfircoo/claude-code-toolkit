@@ -2,14 +2,17 @@
 
 Common issues and solutions when working with hooks.
 
-## Hook Not Triggering
+## Hook Not Firing
 
 ### Symptom
 Hook never executes, even when expected event occurs.
 
 ### Diagnostic steps
 
-**1. Enable debug mode**
+**1. Check the /hooks menu**
+Run `/hooks` in Claude Code to confirm the hook appears under the correct event.
+
+**2. Enable debug mode**
 ```bash
 claude --debug
 ```
@@ -20,93 +23,96 @@ Look for:
 [DEBUG] Found 0 hooks
 ```
 
-**2. Check hook file location**
+**3. Check hook configuration location**
 
-Hooks must be in:
-- Project: `.claude/hooks.json`
-- User: `~/.claude/hooks.json`
-- Plugin: `{plugin}/hooks.json`
+Hooks must be in a `settings.json` file under the `"hooks"` key:
+- User-global: `~/.claude/settings.json`
+- Project (shared): `.claude/settings.json`
+- Project (local): `.claude/settings.local.json`
 
 Verify:
 ```bash
-cat .claude/hooks.json
-# or
-cat ~/.claude/hooks.json
+jq '.hooks' ~/.claude/settings.json
+jq '.hooks' .claude/settings.json
 ```
 
-**3. Validate JSON syntax**
+**4. Validate JSON syntax**
 
 Invalid JSON is silently ignored:
 ```bash
-jq . .claude/hooks.json
+jq . ~/.claude/settings.json
 ```
 
-If error: fix JSON syntax.
+If error: fix JSON syntax. Trailing commas and comments are NOT allowed in JSON.
 
-**4. Check matcher pattern**
+**5. Check matcher pattern**
 
 Common mistakes:
 
-❌ Case sensitivity
+Case sensitivity:
 ```json
-{
-  "matcher": "bash"  // Won't match "Bash"
-}
+{"matcher": "bash"}   // Won't match "Bash"
+{"matcher": "Bash"}   // Correct
 ```
 
-✅ Fix
+Missing regex escape:
 ```json
-{
-  "matcher": "Bash"
-}
+{"matcher": "mcp__memory__*"}    // * is literal, not wildcard
+{"matcher": "mcp__memory__.*"}   // Correct regex wildcard
 ```
 
----
+**6. Check event-specific matchers**
 
-❌ Missing escape for regex
-```json
-{
-  "matcher": "mcp__memory__*"  // Literal *, not wildcard
-}
-```
+Some events match on specific fields, not tool names:
+- `SessionStart` matches on `source` (`startup`, `resume`, `clear`, `compact`)
+- `SessionEnd` matches on reason (`clear`, `logout`, etc.)
+- `Notification` matches on type (`permission_prompt`, `idle_prompt`, etc.)
+- `UserPromptSubmit`, `Stop`, `TeammateIdle`, `TaskCompleted` have **no matcher support** — always fire
 
-✅ Fix
-```json
-{
-  "matcher": "mcp__memory__.*"  // Regex wildcard
-}
-```
+**7. Check PermissionRequest in headless mode**
 
-**5. Test matcher in isolation**
+`PermissionRequest` hooks do NOT fire in non-interactive mode (`-p`). Use `PreToolUse` hooks instead for automated permission decisions.
 
-```bash
-node -e "console.log(/Bash/.test('Bash'))"  # true
-node -e "console.log(/bash/.test('Bash'))"  # false
-```
+**8. Manual file edits not taking effect**
+
+Hooks added through the `/hooks` menu take effect immediately. If you edit settings files directly while Claude Code is running, changes won't take effect until you review them in `/hooks` or restart your session.
 
 ### Solutions
 
-**Missing hook file**: Create `.claude/hooks.json` or `~/.claude/hooks.json`
+**Missing hooks in settings**: Ensure the hook is in the `"hooks"` key of a settings file, not a standalone file.
 
 **Invalid JSON**: Use `jq` to validate and format:
 ```bash
-jq . .claude/hooks.json > temp.json && mv temp.json .claude/hooks.json
+jq . ~/.claude/settings.json > /tmp/formatted.json && mv /tmp/formatted.json ~/.claude/settings.json
 ```
 
-**Wrong matcher**: Check tool names with `--debug` and update matcher
+**Wrong matcher**: Check tool names with `--debug` and update matcher.
 
-**No matcher specified**: If you want to match all tools, omit the matcher field entirely:
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "hooks": [...]  // No matcher = all tools
-      }
-    ]
-  }
-}
+---
+
+## JSON Validation Failed / Shell Profile Interference
+
+### Symptom
+Claude Code shows a JSON parsing error even though your hook script outputs valid JSON. You might see garbled output like:
 ```
+Shell ready on arm64
+{"decision": "block", "reason": "Not allowed"}
+```
+
+### Cause
+When Claude Code runs a hook, it spawns a shell that sources your profile (`~/.zshrc` or `~/.bashrc`). If your profile contains unconditional `echo` statements, that output gets prepended to your hook's JSON.
+
+### Solution
+Wrap echo statements in your shell profile so they only run in interactive shells:
+
+```bash
+# In ~/.zshrc or ~/.bashrc
+if [[ $- == *i* ]]; then
+  echo "Shell ready"
+fi
+```
+
+The `$-` variable contains shell flags, and `i` means interactive. Hooks run in non-interactive shells, so the echo is skipped.
 
 ---
 
@@ -122,13 +128,12 @@ Hook executes but fails with error.
 [DEBUG] Hook command completed with status 1: <error message>
 ```
 
-Status 1 = command failed.
-
 **2. Test command directly**
 
-Copy the command and run in terminal:
+Copy the command and pipe sample JSON:
 ```bash
-echo '{"session_id":"test","tool_name":"Bash"}' | /path/to/your/hook.sh
+echo '{"session_id":"test","tool_name":"Bash","tool_input":{"command":"ls"}}' | /path/to/your/hook.sh
+echo $?  # Check the exit code
 ```
 
 **3. Check permissions**
@@ -138,56 +143,45 @@ chmod +x /path/to/hook.sh  # If not executable
 ```
 
 **4. Verify dependencies**
-
-Does the command require tools?
 ```bash
-which jq  # Check if jq is installed
-which osascript  # macOS only
+which jq       # Check if jq is installed
+which node     # Check Node.js
+which python3  # Check Python
 ```
 
 ### Common issues
 
-**Missing executable permission**
+**Missing executable permission**:
 ```bash
 chmod +x /path/to/hook.sh
 ```
 
-**Missing dependencies**
-
-Install required tools:
+**Missing dependencies** — install required tools:
 ```bash
 # macOS
 brew install jq
 
-# Linux
+# Linux (Debian/Ubuntu)
 apt-get install jq
 ```
 
-**Bad path**
-
-Use absolute paths:
+**"command not found"** — use absolute paths or `$CLAUDE_PROJECT_DIR`:
 ```json
 {
-  "command": "/Users/username/.claude/hooks/script.sh"
+  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/script.sh"
 }
 ```
 
-Or use environment variables:
+**Timeout** — increase if command takes too long (value in seconds):
 ```json
 {
-  "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/script.sh"
-}
-```
-
-**Timeout**
-
-If command takes too long:
-```json
-{
+  "type": "command",
   "command": "/path/to/slow-script.sh",
-  "timeout": 120000  // 2 minutes
+  "timeout": 120
 }
 ```
+
+Default timeout is 10 minutes.
 
 ---
 
@@ -198,72 +192,48 @@ Prompt hook blocks everything or doesn't block when expected.
 
 ### Diagnostic steps
 
-**1. Check LLM response format**
-
-Debug output shows:
-```
-[DEBUG] Hook command completed with status 0: {"decision": "approve", "reason": "ok"}
-```
-
-Verify JSON is valid.
+**1. Check prompt response in debug output**
 
 **2. Check prompt structure**
 
-Ensure prompt is clear:
+Ensure prompt uses `$ARGUMENTS` placeholder:
 ```json
 {
-  "prompt": "Evaluate: $ARGUMENTS\n\nReturn JSON: {\"decision\": \"approve\" or \"block\", \"reason\": \"why\"}"
+  "prompt": "Evaluate this command for safety: $ARGUMENTS"
 }
 ```
 
-**3. Test prompt manually**
+**3. Verify response format**
 
-Submit similar prompt to Claude directly to see response format.
+Prompt hooks must return:
+```json
+{"ok": true}
+```
+or
+```json
+{"ok": false, "reason": "explanation"}
+```
 
 ### Common issues
 
-**Ambiguous instructions**
+**Ambiguous instructions**:
+```json
+{"prompt": "Is this ok? $ARGUMENTS"}          // Too vague
+{"prompt": "Check if this bash command modifies production resources: $ARGUMENTS"}  // Clear
+```
 
-❌ Vague
+**Missing $ARGUMENTS**:
+```json
+{"prompt": "Validate this command"}                      // No context
+{"prompt": "Validate this command: $ARGUMENTS"}          // Has context
+```
+
+**Wrong model for complexity** — specify a more capable model if needed:
 ```json
 {
-  "prompt": "Is this ok? $ARGUMENTS"
-}
-```
-
-✅ Clear
-```json
-{
-  "prompt": "Check if this command is safe: $ARGUMENTS\n\nBlock if: contains 'rm -rf', 'mkfs', or force push to main\n\nReturn: {\"decision\": \"approve\" or \"block\", \"reason\": \"explanation\"}"
-}
-```
-
-**Missing $ARGUMENTS**
-
-❌ No placeholder
-```json
-{
-  "prompt": "Validate this command"
-}
-```
-
-✅ With placeholder
-```json
-{
-  "prompt": "Validate this command: $ARGUMENTS"
-}
-```
-
-**Invalid JSON response**
-
-The LLM must return valid JSON. If it returns plain text, the hook fails.
-
-Add explicit formatting instructions:
-```
-IMPORTANT: Return ONLY valid JSON, no other text:
-{
-  "decision": "approve" or "block",
-  "reason": "your explanation"
+  "type": "prompt",
+  "prompt": "Complex analysis: $ARGUMENTS",
+  "model": "sonnet"
 }
 ```
 
@@ -276,61 +246,35 @@ Hook blocks all operations, even safe ones.
 
 ### Diagnostic steps
 
-**1. Check hook logic**
-
-Review the script/prompt logic. Is the condition too broad?
-
-**2. Test with known-safe input**
-
+**1. Test with known-safe input**
 ```bash
 echo '{"tool_name":"Read","tool_input":{"file_path":"test.txt"}}' | /path/to/hook.sh
+echo $?  # Should be 0 for safe operations
 ```
 
-Expected: `{"decision": "approve"}`
-
-**3. Check for errors in script**
-
-Add error output:
-```bash
-#!/bin/bash
-set -e  # Exit on error
-input=$(cat)
-# ... rest of script
-```
+**2. Check for overly broad conditions**
 
 ### Solutions
 
-**Logic error**
-
-Review conditions:
-```bash
-# Before (blocks everything)
-if [[ "$command" != "safe_command" ]]; then
-  block
-fi
-
-# After (blocks dangerous commands)
-if [[ "$command" == *"dangerous"* ]]; then
-  block
-fi
-```
-
-**Default to approve**
-
-If logic is complex, default to approve on unclear cases:
+**Default to allow** — only block on specific dangerous patterns:
 ```bash
 # Default
-decision="approve"
-reason="ok"
+exit 0
 
-# Only change if dangerous
+# Only block if dangerous
 if [[ "$command" == *"rm -rf"* ]]; then
-  decision="block"
-  reason="Dangerous command"
+  echo "Blocked: destructive command" >&2
+  exit 2
 fi
-
-echo "{\"decision\": \"$decision\", \"reason\": \"$reason\"}"
 ```
+
+**Check script for errors that cause non-zero exit**:
+```bash
+#!/bin/bash
+set -euo pipefail  # Note: set -e will exit on ANY error
+```
+
+If using `set -e`, any failing command causes exit 1 (which proceeds but logs). Use explicit error handling instead.
 
 ---
 
@@ -347,27 +291,19 @@ Hook blocks stop without checking `stop_hook_active` flag.
 **Always check the flag**:
 ```bash
 #!/bin/bash
-input=$(cat)
-stop_hook_active=$(echo "$input" | jq -r '.stop_hook_active')
-
-# If hook already active, don't block again
-if [[ "$stop_hook_active" == "true" ]]; then
-  echo '{"decision": undefined}'
-  exit 0
+INPUT=$(cat)
+if [ "$(echo "$INPUT" | jq -r '.stop_hook_active')" = "true" ]; then
+  exit 0  # Allow Claude to stop
 fi
 
 # Your logic here
-if [ tests_passing ]; then
-  echo '{"decision": "approve", "reason": "Tests pass"}'
-else
-  echo '{"decision": "block", "reason": "Tests failing"}'
-fi
 ```
 
-Or in prompt hooks:
+For prompt hooks, include it in the prompt:
 ```json
 {
-  "prompt": "Evaluate stopping: $ARGUMENTS\n\nIMPORTANT: If stop_hook_active is true, return {\"decision\": undefined}\n\nOtherwise check if tasks complete..."
+  "type": "prompt",
+  "prompt": "Check if all tasks are complete. If stop_hook_active is true in the input, respond with {\"ok\": true}. Otherwise, verify completion. $ARGUMENTS"
 }
 ```
 
@@ -379,33 +315,24 @@ Or in prompt hooks:
 Hook runs but output not shown to user.
 
 ### Cause
-`suppressOutput: true` or output goes to stderr.
+Output goes to stderr or `suppressOutput` is set.
 
 ### Solutions
 
-**Don't suppress output**:
-```json
-{
-  "decision": "approve",
-  "reason": "ok",
-  "suppressOutput": false
-}
-```
-
-**Use systemMessage**:
-```json
-{
-  "decision": "approve",
-  "reason": "ok",
-  "systemMessage": "This message will be shown to user"
-}
-```
-
-**Write to stdout, not stderr**:
+**Use stdout for visible output**:
 ```bash
-echo "This is shown" >&1
-echo "This is hidden" >&2
+echo "This is visible"      # stdout - shown to user
+echo "This is hidden" >&2   # stderr - only visible in verbose mode
 ```
+
+**Use systemMessage in JSON output**:
+```json
+{
+  "systemMessage": "This message will be shown to Claude"
+}
+```
+
+**Toggle verbose mode** with `Ctrl+O` to see all hook output including stderr.
 
 ---
 
@@ -421,19 +348,18 @@ Hook script can't read files or execute commands.
 chmod +x /path/to/hook.sh
 ```
 
-**Check file ownership**:
-```bash
-ls -l /path/to/hook.sh
-chown $USER /path/to/hook.sh
+**Quote paths with spaces**:
+```json
+{
+  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/script.sh"
+}
 ```
 
-**Use absolute paths**:
+**Use cwd from input** (not $PWD or cd):
 ```bash
-# Instead of
-command="./script.sh"
-
-# Use
-command="$CLAUDE_PROJECT_DIR/.claude/hooks/script.sh"
+#!/bin/bash
+input=$(cat)
+cwd=$(echo "$input" | jq -r '.cwd')
 ```
 
 ---
@@ -442,33 +368,29 @@ command="$CLAUDE_PROJECT_DIR/.claude/hooks/script.sh"
 
 ### Symptom
 ```
-[DEBUG] Hook command timed out after 60000ms
+[DEBUG] Hook command timed out after 600s
 ```
 
 ### Solutions
 
-**Increase timeout**:
+**Set appropriate timeout** (in seconds):
 ```json
 {
   "type": "command",
   "command": "/path/to/slow-script.sh",
-  "timeout": 300000  // 5 minutes
+  "timeout": 120
 }
 ```
 
-**Optimize script**:
-- Reduce unnecessary operations
-- Cache results when possible
-- Run expensive operations in background
+Defaults: 10 min (command), 60s (agent), 30s (prompt).
 
-**Run in background**:
+**Optimize script** — reduce unnecessary operations, cache results.
+
+**Run expensive operations in background**:
 ```bash
 #!/bin/bash
-# Start long operation in background
 /path/to/long-operation.sh &
-
-# Return immediately
-echo '{"decision": "approve", "reason": "ok"}'
+exit 0  # Return immediately
 ```
 
 ---
@@ -477,9 +399,6 @@ echo '{"decision": "approve", "reason": "ok"}'
 
 ### Symptom
 Multiple hooks triggering when only one expected.
-
-### Cause
-Tool name matches multiple matchers.
 
 ### Diagnostic
 ```
@@ -490,11 +409,7 @@ Tool name matches multiple matchers.
 
 **Be more specific**:
 ```json
-// Instead of
-{"matcher": ".*"}  // Matches everything
-
-// Use
-{"matcher": "Bash"}  // Exact match
+{"matcher": "^Bash$"}  // Exact match only, not BashOutput
 ```
 
 **Check overlapping patterns**:
@@ -502,9 +417,9 @@ Tool name matches multiple matchers.
 {
   "hooks": {
     "PreToolUse": [
-      {"matcher": "Bash", ...},        // Matches Bash
-      {"matcher": "Bash.*", ...},      // Also matches Bash!
-      {"matcher": ".*", ...}           // Also matches everything!
+      {"matcher": "Bash"},      // Matches Bash
+      {"matcher": "Bash.*"},    // Also matches Bash!
+      {"matcher": ".*"}         // Also matches everything!
     ]
   }
 }
@@ -514,74 +429,40 @@ Remove overlaps or make them mutually exclusive.
 
 ---
 
-## Environment Variables Not Working
-
-### Symptom
-`$CLAUDE_PROJECT_DIR` or other variables are empty.
-
-### Solutions
-
-**Check variable spelling**:
-- `$CLAUDE_PROJECT_DIR` (correct)
-- `$CLAUDE_PROJECT_ROOT` (wrong)
-
-**Use double quotes**:
-```json
-{
-  "command": "$CLAUDE_PROJECT_DIR/hooks/script.sh"
-}
-```
-
-**In shell scripts, use from input**:
-```bash
-#!/bin/bash
-input=$(cat)
-cwd=$(echo "$input" | jq -r '.cwd')
-cd "$cwd" || exit 1
-```
-
----
-
 ## Debugging Workflow
 
-**Step 1**: Enable debug mode
+**Step 1**: Use the `/hooks` menu to verify configuration
+```
+/hooks
+```
+
+**Step 2**: Enable debug mode
 ```bash
 claude --debug
 ```
 
-**Step 2**: Look for hook execution logs
+**Step 3**: Toggle verbose mode during a session
 ```
-[DEBUG] Executing hooks for PreToolUse:Bash
-[DEBUG] Found 1 hook matchers
-[DEBUG] Executing hook command: /path/to/script.sh
-[DEBUG] Hook command completed with status 0
+Ctrl+O
 ```
 
-**Step 3**: Test hook in isolation
+**Step 4**: Test hook in isolation
 ```bash
-echo '{"test":"data"}' | /path/to/hook.sh
+echo '{"tool_name":"Bash","tool_input":{"command":"ls"}}' | /path/to/hook.sh
+echo $?
 ```
 
-**Step 4**: Check script with `set -x`
+**Step 5**: Add logging to hook scripts
 ```bash
 #!/bin/bash
-set -x  # Print each command before executing
-# ... your script
-```
-
-**Step 5**: Add logging
-```bash
-#!/bin/bash
-echo "Hook started" >> /tmp/hook-debug.log
+echo "Hook started at $(date)" >> /tmp/hook-debug.log
 input=$(cat)
 echo "Input: $input" >> /tmp/hook-debug.log
 # ... your logic
-echo "Decision: $decision" >> /tmp/hook-debug.log
+echo "Exit code: $?" >> /tmp/hook-debug.log
 ```
 
 **Step 6**: Verify JSON output
 ```bash
-echo '{"decision":"approve","reason":"test"}' | jq .
+echo '{"ok":true}' | jq .  # Must parse without errors
 ```
-
-If `jq` fails, JSON is invalid.

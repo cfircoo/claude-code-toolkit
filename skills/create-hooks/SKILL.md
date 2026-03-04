@@ -1,423 +1,129 @@
 ---
-name: create-hooks
-description: Expert guidance for creating, configuring, and using Claude Code hooks. Use when working with hooks, setting up event listeners, validating commands, automating workflows, adding notifications, or understanding hook types (PreToolUse, PostToolUse, Stop, SessionStart, UserPromptSubmit, etc).
+name: manage-hooks
+description: This skill should be used when the user asks to "create a hook", "add a PreToolUse hook", "debug a hook", "fix a hook", "hook not working", or mentions hook configuration, hook events, hook types, automating workflows, or understanding hooks. Provides expert guidance for creating, configuring, debugging, and managing Claude Code hooks.
+context: fork
+agent: general-purpose
+argument-hint: [create|debug|toolkit|guidance] <details>
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
-<objective>
-Hooks are event-driven automation for Claude Code that execute shell commands or LLM prompts in response to tool usage, session events, and user interactions. This skill teaches you how to create, configure, and debug hooks for validating commands, automating workflows, injecting context, and implementing custom completion criteria.
+<essential_principles>
+Hooks are event-driven automation for Claude Code that execute shell commands, LLM prompts, or multi-turn agents in response to tool usage, session events, and user interactions. They provide deterministic control over Claude's behavior without modifying core code.
 
-Hooks provide programmatic control over Claude's behavior without modifying core code, enabling project-specific automation, safety checks, and workflow customization.
-</objective>
+**1. Three Hook Types:**
+- **command** — shell command, deterministic, fast. Exit 0 = proceed, exit 2 = block. JSON stdout for structured control.
+- **prompt** — single-turn LLM evaluation (Haiku default). Returns `{"ok": true}` or `{"ok": false, "reason": "..."}`.
+- **agent** — multi-turn subagent with tool access (up to 50 turns). Same ok/reason output. Use when verification needs codebase access.
 
-<context>
-Hooks are shell commands or LLM-evaluated prompts that execute in response to Claude Code events. They operate within an event hierarchy: events (PreToolUse, PostToolUse, Stop, etc.) trigger matchers (tool patterns) which fire hooks (commands or prompts). Hooks can block actions, modify tool inputs, inject context, or simply observe and log Claude's operations.
-</context>
+**2. Event → Matcher → Hook** — Events (PreToolUse, Stop, etc.) trigger matchers (regex on tool name/context) which fire hooks. See `<quick_reference>` for the full event table.
 
-<quick_start>
-<workflow>
-1. Create hooks config file:
-   - Project: `.claude/hooks.json`
-   - User: `~/.claude/hooks.json`
-2. Choose hook event (when it fires)
-3. Choose hook type (command or prompt)
-4. Configure matcher (which tools trigger it)
-5. Test with `claude --debug`
-</workflow>
+**3. Configuration Locations** (highest priority first):
+- User-global: `~/.claude/settings.json`
+- Project shared: `.claude/settings.json`
+- Project local: `.claude/settings.local.json`
+- Or use `/hooks` interactive menu in Claude Code
 
-<example>
-**Log all bash commands**:
-
-`.claude/hooks.json`:
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "jq -r '\"\\(.tool_input.command) - \\(.tool_input.description // \\\"No description\\\")\"' >> ~/.claude/bash-log.txt"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-This hook:
-- Fires before (`PreToolUse`) every `Bash` tool use
-- Executes a `command` (not an LLM prompt)
-- Logs command + description to a file
-</example>
-</quick_start>
-
-<hook_types>
-| Event | When it fires | Can block? |
-|-------|---------------|------------|
-| **PreToolUse** | Before tool execution | Yes |
-| **PostToolUse** | After tool execution | No |
-| **UserPromptSubmit** | User submits a prompt | Yes |
-| **Stop** | Claude attempts to stop | Yes |
-| **SubagentStop** | Subagent attempts to stop | Yes |
-| **SessionStart** | Session begins | No |
-| **SessionEnd** | Session ends | No |
-| **PreCompact** | Before context compaction | Yes |
-| **Notification** | Claude needs input | No |
-
-Blocking hooks can return `"decision": "block"` to prevent the action. See [references/hook-types.md](references/hook-types.md) for detailed use cases.
-</hook_types>
-
-<hook_anatomy>
-<hook_type name="command">
-**Type**: Executes a shell command
-
-**Use when**:
-- Simple validation (check file exists)
-- Logging (append to file)
-- External tools (formatters, linters)
-- Desktop notifications
-
-**Input**: JSON via stdin
-**Output**: JSON via stdout (optional)
-
-```json
-{
-  "type": "command",
-  "command": "/path/to/script.sh",
-  "timeout": 30000
-}
-```
-</hook_type>
-
-<hook_type name="prompt">
-**Type**: LLM evaluates a prompt
-
-**Use when**:
-- Complex decision logic
-- Natural language validation
-- Context-aware checks
-- Reasoning required
-
-**Input**: Prompt with `$ARGUMENTS` placeholder
-**Output**: JSON with `decision` and `reason`
-
-```json
-{
-  "type": "prompt",
-  "prompt": "Evaluate if this command is safe: $ARGUMENTS\n\nReturn JSON: {\"decision\": \"approve\" or \"block\", \"reason\": \"explanation\"}"
-}
-```
-</hook_type>
-</hook_anatomy>
-
-<matchers>
-Matchers filter which tools trigger the hook:
-
-```json
-{
-  "matcher": "Bash",           // Exact match
-  "matcher": "Write|Edit",     // Multiple tools (regex OR)
-  "matcher": "mcp__.*",        // All MCP tools
-  "matcher": "mcp__memory__.*" // Specific MCP server
-}
-```
-
-**No matcher**: Hook fires for all tools
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [...]  // No matcher - fires on every user prompt
-      }
-    ]
-  }
-}
-```
-</matchers>
-
-<input_output>
-Hooks receive JSON via stdin with session info, current directory, and event-specific data. Blocking hooks can return JSON to approve/block actions or modify inputs.
-
-**Example output** (blocking hooks):
-```json
-{
-  "decision": "approve" | "block",
-  "reason": "Why this decision was made"
-}
-```
-
-See [references/input-output-schemas.md](references/input-output-schemas.md) for complete schemas for each hook type.
-</input_output>
-
-<environment_variables>
-Available in hook commands:
-
+**4. Environment Variables:**
 | Variable | Value |
 |----------|-------|
 | `$CLAUDE_PROJECT_DIR` | Project root directory |
 | `${CLAUDE_PLUGIN_ROOT}` | Plugin directory (plugin hooks only) |
-| `$ARGUMENTS` | Hook input JSON (prompt hooks only) |
+| `$ARGUMENTS` | Hook input JSON (prompt/agent hooks only) |
+| `$CLAUDE_ENV_FILE` | Path for persisting environment variables |
 
-**Example**:
-```json
-{
-  "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/validate.sh"
-}
-```
-</environment_variables>
+**5. Safety Essentials:**
+- **Stop hook loops**: Always check `stop_hook_active` field in Stop/SubagentStop hooks — exit 0 if true
+- **Timeouts**: Set reasonable values in seconds (default: 10 min commands, 60s agents, 30s prompts)
+- **Permissions**: `chmod +x` on script files
+- **Path safety**: Quote `"$CLAUDE_PROJECT_DIR"` for spaces
+- **Shell profiles**: Wrap echo in `~/.zshrc`/`~/.bashrc` with `[[ $- == *i* ]]` checks — non-interactive shells can corrupt JSON output
+- **PermissionRequest**: Doesn't fire in headless mode (`-p`); use PreToolUse instead
+</essential_principles>
 
-<common_patterns>
-**Desktop notification when input needed**:
-```json
-{
-  "hooks": {
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "osascript -e 'display notification \"Claude needs input\" with title \"Claude Code\"'"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+<intake>
+What would you like to do?
 
-**Block destructive git commands**:
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Check if this command is destructive: $ARGUMENTS\n\nBlock if it contains: 'git push --force', 'rm -rf', 'git reset --hard'\n\nReturn: {\"decision\": \"approve\" or \"block\", \"reason\": \"explanation\"}"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+1. Create a new hook
+2. Debug / fix a hook
+3. Create a toolkit hook (distributable)
+4. Get guidance on hook design
 
-**Auto-format code after edits**:
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "prettier --write $CLAUDE_PROJECT_DIR",
-            "timeout": 10000
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+**If `$ARGUMENTS` provides clear intent, skip the menu and route directly.**
+</intake>
 
-**Add context at session start**:
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Current sprint: Sprint 23. Focus: User authentication\"}}'"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-</common_patterns>
+<routing>
+| Response | Intent Phrases | Workflow |
+|----------|---------------|----------|
+| 1, "create", "add", "build", "set up" | "create a hook", "add a PreToolUse hook", "block rm -rf" | workflows/create-hook.md |
+| 2, "debug", "fix", "not working", "broken" | "hook not firing", "debug my hook", "fix hook" | workflows/debug-hook.md |
+| 3, "toolkit", "package", "distribute", "install" | "create toolkit hook", "package hook" | workflows/create-toolkit-hook.md |
+| 4, "guidance", "help", "recommend", "which" | "which event?", "how do hooks work?", "recommend" | workflows/get-guidance.md |
 
-<debugging>
-Always test hooks with the debug flag:
-```bash
-claude --debug
-```
+**Intent-based routing (when `$ARGUMENTS` provides clear intent):**
+- "block dangerous commands" → workflows/create-hook.md
+- "my hook isn't triggering" → workflows/debug-hook.md
+- "package for toolkit" → workflows/create-toolkit-hook.md
+- "what event should I use" → workflows/get-guidance.md
 
-This shows which hooks matched, command execution, and output. See [references/troubleshooting.md](references/troubleshooting.md) for common issues and solutions.
-</debugging>
+**After reading the workflow, follow it exactly.**
+</routing>
 
-<reference_guides>
-**Hook types and events**: [references/hook-types.md](references/hook-types.md)
-- Complete list of hook events
-- When each event fires
-- Input/output schemas for each
-- Blocking vs non-blocking hooks
+<quick_reference>
+| Event | When it fires | Can block? | Matcher filters |
+|-------|---------------|------------|-----------------|
+| **PreToolUse** | Before tool execution | Yes | tool name |
+| **PostToolUse** | After tool succeeds | Yes (`decision: "block"`) | tool name |
+| **PostToolUseFailure** | After tool fails | No | tool name |
+| **PermissionRequest** | Permission dialog appears | Yes | tool name |
+| **UserPromptSubmit** | User submits a prompt | Yes | no matcher support |
+| **Stop** | Claude finishes responding | Yes | no matcher support |
+| **SubagentStart** | Subagent is spawned | No | agent type |
+| **SubagentStop** | Subagent finishes | Yes | agent type |
+| **SessionStart** | Session begins/resumes | No | source (`startup`, `resume`, `clear`, `compact`) |
+| **SessionEnd** | Session terminates | No | reason (`clear`, `logout`, etc.) |
+| **PreCompact** | Before context compaction | No | trigger (`manual`, `auto`) |
+| **Notification** | Claude needs attention | No | type (`permission_prompt`, `idle_prompt`, etc.) |
+| **TeammateIdle** | Agent about to go idle | Yes (exit 2) | no matcher support |
+| **TaskCompleted** | Task marked complete | Yes (exit 2) | no matcher support |
+| **ConfigChange** | Config file changes | Yes (`decision: "block"`) | config type |
 
-**Command vs Prompt hooks**: [references/command-vs-prompt.md](references/command-vs-prompt.md)
-- Decision tree: which type to use
-- Command hook patterns and examples
-- Prompt hook patterns and examples
-- Performance considerations
+See [references/hook-types.md](references/hook-types.md) for detailed schemas and use cases for each event.
+</quick_reference>
 
-**Matchers and patterns**: [references/matchers.md](references/matchers.md)
-- Regex patterns for tool matching
-- MCP tool matching patterns
-- Multiple tool matching
-- Debugging matcher issues
+<reference_index>
+All in `references/`:
 
-**Input/Output schemas**: [references/input-output-schemas.md](references/input-output-schemas.md)
-- Complete schema for each hook type
-- Field descriptions and types
-- Hook-specific output fields
-- Example JSON for each event
+**Types & Events:** hook-types.md — complete event schemas and use cases
+**Hook Types:** command-vs-prompt.md — decision tree for command vs prompt vs agent
+**Matchers:** matchers.md — regex patterns, event-specific matching, MCP tools
+**I/O Schemas:** input-output-schemas.md — stdin JSON, exit codes, hookSpecificOutput
+**Examples:** examples.md — notifications, file protection, auto-format, logging, Stop hooks
+**Troubleshooting:** troubleshooting.md — hooks not triggering, JSON corruption, loops
+**Toolkit:** toolkit-structure.md — distributable hook packaging for claude-code-toolkit
+</reference_index>
 
-**Working examples**: [references/examples.md](references/examples.md)
-- Desktop notifications
-- Command validation
-- Auto-formatting workflows
-- Logging and audit trails
-- Stop logic patterns
-- Session context injection
+<workflows_index>
+All in `workflows/`:
 
-**Troubleshooting**: [references/troubleshooting.md](references/troubleshooting.md)
-- Hooks not triggering
-- Command execution failures
-- Prompt hook issues
-- Permission problems
-- Timeout handling
-- Debug workflow
-</reference_guides>
-
-<toolkit_hook_structure>
-**Creating Installable Hooks for claude-code-toolkit**
-
-When creating hooks for distribution via the toolkit, use this structure:
-
-```
-hooks/
-└── my-hook/
-    ├── README.md                # Documentation
-    ├── install.sh               # Standalone installer
-    ├── settings-template.json   # Hook configuration to merge
-    └── toggle.sh                # Optional: on/off toggle script
-```
-
-**settings-template.json** (hook configuration):
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "your-hook-command-here"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-**install.sh** (standalone installer):
-```bash
-#!/bin/bash
-set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLAUDE_DIR="$HOME/.claude"
-TEMPLATE_FILE="$SCRIPT_DIR/settings-template.json"
-
-# Check dependencies
-command -v jq &>/dev/null || { echo "jq required"; exit 1; }
-
-# Create settings if missing
-mkdir -p "$CLAUDE_DIR"
-[ -f "$CLAUDE_DIR/settings.json" ] || echo '{}' > "$CLAUDE_DIR/settings.json"
-
-# Backup and merge
-cp "$CLAUDE_DIR/settings.json" "$CLAUDE_DIR/settings.json.bak"
-jq -s '.[0] * .[1]' "$CLAUDE_DIR/settings.json" "$TEMPLATE_FILE" > /tmp/merged.json
-mv /tmp/merged.json "$CLAUDE_DIR/settings.json"
-
-echo "Hook installed"
-```
-
-**REQUIRED: Update root installers**:
-
-After creating a new hook, you MUST update both `install-linux.sh` and `install-mac.sh`:
-
-1. Add install function:
-```bash
-install_my_hook() {
-    local INSTALL_SCRIPT="$SCRIPT_DIR/hooks/my-hook/install.sh"
-    [ -f "$INSTALL_SCRIPT" ] || { echo "Hook not found"; return; }
-    bash "$INSTALL_SCRIPT"
-}
-```
-
-2. Add to "install all" section:
-```bash
-echo -e "${BLUE}My Hook (description):${NC}"
-install_my_hook
-```
-
-3. Add to "select by folder" section:
-```bash
-echo
-echo -e "${BLUE}━━━ My Hook ━━━${NC}"
-echo -e "${DIM}Brief description of what the hook does${NC}"
-echo -n "Install my-hook? (y/n): "
-read -r choice
-[[ "$choice" =~ ^[Yy]$ ]] && install_my_hook
-```
-
-**Examples in toolkit**:
-- `hooks/concise-mode/` - UserPromptSubmit hook with toggle
-- `hooks/damage-control/` - PreToolUse hooks with Python scripts
-</toolkit_hook_structure>
-
-<security_checklist>
-**Critical safety requirements**:
-
-- **Infinite loop prevention**: Check `stop_hook_active` flag in Stop hooks to prevent recursive triggering
-- **Timeout configuration**: Set reasonable timeouts (default: 60s) to prevent hanging
-- **Permission validation**: Ensure hook scripts have executable permissions (`chmod +x`)
-- **Path safety**: Use absolute paths with `$CLAUDE_PROJECT_DIR` to avoid path injection
-- **JSON validation**: Validate hook config with `jq` before use to catch syntax errors
-- **Selective blocking**: Be conservative with blocking hooks to avoid workflow disruption
-
-**Testing protocol**:
-```bash
-# Always test with debug flag first
-claude --debug
-
-# Validate JSON config
-jq . .claude/hooks.json
-```
-</security_checklist>
+| Workflow | Purpose |
+|----------|---------|
+| create-hook.md | Build a hook from scratch |
+| debug-hook.md | Diagnose and fix broken hooks |
+| create-toolkit-hook.md | Package hook for toolkit distribution |
+| get-guidance.md | Help decide event, type, and matcher |
+</workflows_index>
 
 <success_criteria>
 A working hook configuration has:
 
-- Valid JSON in `.claude/hooks.json` (validated with `jq`)
+- Valid JSON in the appropriate settings file (validated with `jq`)
 - Appropriate hook event selected for the use case
-- Correct matcher pattern that matches target tools
-- Command or prompt that executes without errors
-- Proper output schema (decision/reason for blocking hooks)
-- Tested with `--debug` flag showing expected behavior
-- No infinite loops in Stop hooks (checks `stop_hook_active` flag)
-- Reasonable timeout set (especially for external commands)
-- Executable permissions on script files if using file paths
+- Correct matcher pattern matching target tools/contexts
+- Command, prompt, or agent that executes without errors
+- Proper output (exit codes for commands, ok/reason for prompts/agents)
+- Tested with `--debug` flag or `Ctrl+O` verbose mode showing expected behavior
+- No infinite loops in Stop/SubagentStop hooks (checks `stop_hook_active` flag)
+- Reasonable timeout set in seconds
+- Executable permissions on script files
+- No shell profile interference with JSON output
 </success_criteria>

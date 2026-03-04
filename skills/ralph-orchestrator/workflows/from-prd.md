@@ -35,24 +35,27 @@ Ready to execute Ralph?"
 </step>
 
 <step name="3_execute_ralph">
-**Run autonomous implementation via ralph.sh**
+**Run autonomous implementation via subagent loop**
 
-**CRITICAL: ALL implementation MUST go through ralph.sh. NEVER write code or modify project files directly.**
+**CRITICAL: ALL implementation MUST go through ralph-coder/ralph-tester subagents via the Task tool. NEVER write code or modify project files directly.**
 
-Ask user for iteration limit:
-"How many iterations should Ralph run? (default: 5)"
+Follow the subagent execution loop defined in `workflows/execute-only.md` step 3 (framework detection) and step 4 (subagent loop).
 
-Execute:
-```bash
-~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh [iterations]
-```
+This will:
+1. Detect project framework and build agent routing table
+2. Group independent stories into parallel batches
+3. For each batch:
+   - Phase 1: Spawn ralph-coder Tasks in parallel (one per story, each in a worktree)
+   - Phase 2: Spawn ralph-tester Tasks in parallel (in same worktrees)
+   - Merge successful stories to main, update prd.json
+4. Continue until all stories done or max iterations reached
 
-**After ralph.sh exits, check the exit code:**
-- **Exit 0**: All stories completed successfully.
-- **Exit 1**: Max iterations reached. **STOP and ask the user for instructions.**
-- **Exit 2**: All stories blocked or exhausted. **STOP and show failed stories with `lastAttemptLog`. Ask the user for instructions.**
+**After the loop completes:**
+- **All stories done**: Report success.
+- **Max iterations reached**: **STOP and ask the user for instructions.**
+- **All blocked/exhausted**: **STOP and show failed stories with `lastAttemptLog`. Ask the user for instructions.**
 
-**NEVER continue past a non-zero exit code without user approval.**
+**NEVER continue past incomplete execution without user approval.**
 </step>
 
 </process>
@@ -60,6 +63,6 @@ Execute:
 <success_criteria>
 - [ ] PRD converted to tasks/prd.json with new schema
 - [ ] Stories are atomic, ordered, with verificationCommands and blockedBy
-- [ ] Ralph executed via ralph.sh
+- [ ] Ralph executed via subagent loop with parallel batches
 - [ ] All stories have `status: "done"`
 </success_criteria>

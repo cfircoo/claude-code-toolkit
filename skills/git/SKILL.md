@@ -1,6 +1,10 @@
 ---
 name: git
-description: Git operations for committing, pushing, and opening PRs using gh CLI. Use when performing version control tasks.
+description: Git operations for committing, pushing, and opening PRs using gh CLI. Use when performing version control tasks. This skill should be used when the user asks to "commit", "push", "create a PR", "ship code", "git status", or mentions git workflow, version control, or pull requests.
+allowed-tools: Read, Bash, Glob, Grep
+argument-hint: [action or git operation]
+model: sonnet
+context: fork
 ---
 
 <essential_principles>

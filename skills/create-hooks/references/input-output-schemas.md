@@ -4,17 +4,49 @@ Complete JSON schemas for all hook types.
 
 ## Common Input Fields
 
-All hooks receive these fields:
+All hooks receive these fields via stdin as JSON:
 
 ```typescript
 {
   session_id: string           // Unique session identifier
   transcript_path: string      // Path to session transcript (.jsonl file)
   cwd: string                  // Current working directory
-  permission_mode: string      // "default" | "plan" | "acceptEdits" | "bypassPermissions"
+  permission_mode: string      // "default" | "plan" | "acceptEdits" | "dontAsk" | "bypassPermissions"
   hook_event_name: string      // Name of the hook event
 }
 ```
+
+---
+
+## Exit Code Behavior (Command Hooks)
+
+Command hooks communicate results via exit codes:
+
+| Exit code | Behavior | Output channel |
+|-----------|----------|----------------|
+| **0** | Action proceeds | Stdout: added to context for `UserPromptSubmit`/`SessionStart`; or parsed as JSON for structured control |
+| **2** | Action blocked | Stderr: message sent to Claude as feedback |
+| **Other** | Action proceeds | Stderr: logged (visible in verbose mode `Ctrl+O`) |
+
+**Simple blocking** (exit 2 + stderr):
+```bash
+echo "Blocked: dropping tables is not allowed" >&2
+exit 2
+```
+
+**Structured control** (exit 0 + JSON stdout):
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Use rg instead of grep"
+  },
+  "systemMessage": "Message for Claude"
+}
+```
+
+**Important**: Don't mix exit 2 with JSON output. Claude Code ignores JSON when you exit 2.
 
 ---
 
@@ -36,28 +68,28 @@ All hooks receive these fields:
 }
 ```
 
-**Output** (optional, for control):
+**Output — structured JSON** (exit 0):
 ```json
 {
-  "decision": "approve" | "block",
-  "reason": "Explanation for the decision",
-  "permissionDecision": "allow" | "deny" | "ask",
-  "permissionDecisionReason": "Why this permission decision",
-  "updatedInput": {
-    "command": "npm install --save-exact"
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow|deny|ask",
+    "permissionDecisionReason": "Why this permission decision",
+    "updatedInput": {
+      "command": "npm install --save-exact"
+    }
   },
-  "systemMessage": "Message displayed to user",
+  "systemMessage": "Message displayed to Claude",
   "suppressOutput": false,
   "continue": true
 }
 ```
 
 **Fields**:
-- `decision`: Whether to allow the tool call
-- `reason`: Explanation (required if blocking)
-- `permissionDecision`: Override permission system
-- `updatedInput`: Modified tool input (partial update)
-- `systemMessage`: Message shown to user
+- `permissionDecision`: `"allow"` (proceed, skip permission prompt), `"deny"` (cancel, send reason to Claude), `"ask"` (show normal permission prompt)
+- `permissionDecisionReason`: Explanation fed back to Claude (required if denying)
+- `updatedInput`: Modified tool input (partial update — only specify fields to change)
+- `systemMessage`: Context added to Claude's next message
 - `suppressOutput`: Hide hook output from user
 - `continue`: If false, stop execution
 
@@ -78,21 +110,32 @@ All hooks receive these fields:
     "file_path": "/path/to/file.js",
     "content": "const x = 1;"
   },
-  "tool_output": "File created successfully at: /path/to/file.js"
+  "tool_response": {
+    "filePath": "/path/to/file.js",
+    "success": true
+  },
+  "tool_use_id": "toolu_01ABC123..."
 }
 ```
 
 **Output** (optional):
 ```json
 {
-  "systemMessage": "Code formatted successfully",
-  "suppressOutput": false
+  "decision": "block",
+  "reason": "Explanation shown to Claude",
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Additional information for Claude",
+    "updatedMCPToolOutput": "Replacement output (MCP tools only)"
+  }
 }
 ```
 
 **Fields**:
-- `systemMessage`: Additional message to display
-- `suppressOutput`: Hide tool output from user
+- `decision`: `"block"` to prompt Claude with the reason (tool already executed)
+- `reason`: Explanation shown to Claude when blocking
+- `additionalContext`: Additional context for Claude
+- `updatedMCPToolOutput`: For MCP tools only — replaces tool output
 
 ---
 
@@ -110,19 +153,21 @@ All hooks receive these fields:
 }
 ```
 
-**Output**:
+**Output — command hooks**:
+- Exit 0: stdout text added to Claude's context
+- Exit 2: prompt blocked, stderr shown as feedback
+
+**Output — structured JSON**:
 ```json
 {
-  "decision": "approve" | "block",
-  "reason": "Prompt is clear and actionable",
-  "systemMessage": "Optional message to user"
+  "hookSpecificOutput": {
+    "additionalContext": "Extra context injected alongside the prompt"
+  }
 }
 ```
 
 **Fields**:
-- `decision`: Whether to allow the prompt
-- `reason`: Explanation (required if blocking)
-- `systemMessage`: Message shown to user
+- `additionalContext`: Text injected into Claude's context alongside the prompt
 
 ---
 
@@ -136,46 +181,61 @@ All hooks receive these fields:
   "cwd": "/Users/username/project",
   "permission_mode": "default",
   "hook_event_name": "Stop",
-  "stop_hook_active": false
+  "stop_hook_active": false,
+  "last_assistant_message": "I've completed the refactoring. Here's a summary..."
 }
 ```
 
 **Output**:
 ```json
 {
-  "decision": "block" | undefined,
-  "reason": "Tests are still failing - please fix before stopping",
-  "continue": true,
-  "stopReason": "Cannot stop yet",
-  "systemMessage": "Additional context"
+  "decision": "block",
+  "reason": "Tests are still failing - please fix before stopping"
 }
 ```
 
 **Fields**:
-- `decision`: `"block"` to prevent stopping, `undefined` to allow
-- `reason`: Why Claude should continue (required if blocking)
-- `continue`: If true and blocking, Claude continues working
-- `stopReason`: Message shown when stopping is blocked
-- `systemMessage`: Additional context for Claude
-- `stop_hook_active`: If true, don't block again (prevents infinite loops)
+- `decision`: `"block"` to prevent stopping (omit or use any other value to allow)
+- `reason`: Why Claude should continue (required if blocking, fed back to Claude)
+- `stop_hook_active`: If `true` in input, don't block again (prevents infinite loops)
 
-**Important**: Always check `stop_hook_active` to avoid infinite loops:
-
-```javascript
-if (input.stop_hook_active) {
-  return { decision: undefined }; // Don't block again
-}
+**CRITICAL**: Always check `stop_hook_active` to avoid infinite loops:
+```bash
+#!/bin/bash
+INPUT=$(cat)
+if [ "$(echo "$INPUT" | jq -r '.stop_hook_active')" = "true" ]; then
+  exit 0  # Allow Claude to stop
+fi
 ```
 
 ---
 
 ## SubagentStop
 
-**Input**: Same as Stop
+**Input**:
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "~/.claude/projects/.../session.jsonl",
+  "cwd": "/current/working/directory",
+  "permission_mode": "default",
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_id": "def456",
+  "agent_type": "Explore",
+  "agent_transcript_path": "~/.claude/projects/.../abc123/subagents/agent-def456.jsonl",
+  "last_assistant_message": "Analysis complete. Found 3 potential issues..."
+}
+```
 
-**Output**: Same as Stop
+**Fields**:
+- `stop_hook_active`: Same as Stop — check to prevent infinite loops
+- `agent_id`: Unique identifier for the subagent
+- `agent_type`: Agent name (used for matcher filtering)
+- `agent_transcript_path`: Path to the subagent's own transcript
+- `last_assistant_message`: Text content of the subagent's final response
 
-**Usage**: Same as Stop, but for subagent completion
+**Output**: Same decision format as Stop (`decision: "block"` + `reason`)
 
 ---
 
@@ -189,16 +249,25 @@ if (input.stop_hook_active) {
   "cwd": "/Users/username/project",
   "permission_mode": "default",
   "hook_event_name": "SessionStart",
-  "source": "startup" | "continue" | "checkpoint"
+  "source": "startup",
+  "model": "claude-sonnet-4-6"
 }
 ```
 
-**Output**:
+**Source values**: `startup`, `resume`, `clear`, `compact`
+**Additional fields**: `model` (model identifier), optional `agent_type` (when using `claude --agent`)
+
+**Output**: Text written to stdout is added to Claude's context:
+```bash
+echo 'Current branch: main. Sprint: auth refactor.'
+```
+
+Or structured JSON:
 ```json
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": "Current sprint: Sprint 23\nFocus: User authentication\nDeadline: Friday"
+    "additionalContext": "Current sprint: Sprint 23\nFocus: User authentication"
   }
 }
 ```
@@ -218,10 +287,11 @@ if (input.stop_hook_active) {
   "transcript_path": "~/.claude/projects/.../session.jsonl",
   "cwd": "/Users/username/project",
   "permission_mode": "default",
-  "hook_event_name": "SessionEnd",
-  "reason": "exit" | "error" | "timeout" | "compact"
+  "hook_event_name": "SessionEnd"
 }
 ```
+
+**Matcher values**: `clear`, `logout`, `prompt_input_exit`, `bypass_permissions_disabled`, `other`
 
 **Output**: None (ignored)
 
@@ -239,24 +309,12 @@ if (input.stop_hook_active) {
   "cwd": "/Users/username/project",
   "permission_mode": "default",
   "hook_event_name": "PreCompact",
-  "trigger": "manual" | "auto",
+  "trigger": "manual",
   "custom_instructions": "Preserve all git commit messages"
 }
 ```
 
-**Output**:
-```json
-{
-  "decision": "approve" | "block",
-  "reason": "Safe to compact" | "Wait until task completes"
-}
-```
-
-**Fields**:
-- `trigger`: How compaction was initiated
-- `custom_instructions`: User's compaction preferences (if manual)
-- `decision`: Whether to proceed with compaction
-- `reason`: Explanation
+**Output**: No decision control. Exit 2 shows stderr to user only (cannot block compaction).
 
 ---
 
@@ -268,66 +326,53 @@ if (input.stop_hook_active) {
   "session_id": "abc123",
   "transcript_path": "~/.claude/projects/.../session.jsonl",
   "cwd": "/Users/username/project",
-  "permission_mode": "default",
   "hook_event_name": "Notification"
 }
 ```
 
-**Output**: None (hook just performs notification action)
+**Matcher values**: `permission_prompt`, `idle_prompt`, `auth_success`, `elicitation_dialog`
 
-**Usage**: Trigger external notifications (desktop, sound, status bar)
-
----
-
-## Common Output Fields
-
-These fields can be returned by any hook:
-
-```json
-{
-  "continue": true | false,
-  "stopReason": "Reason shown when stopping",
-  "suppressOutput": true | false,
-  "systemMessage": "Additional context or message"
-}
-```
-
-**Fields**:
-- `continue`: If false, stop Claude's execution immediately
-- `stopReason`: Message displayed when execution stops
-- `suppressOutput`: If true, hide hook's stdout/stderr from user
-- `systemMessage`: Context added to Claude's next message
+**Output**: None (hook just performs its action)
 
 ---
 
-## LLM Prompt Hook Response
+## ConfigChange
 
-When using `type: "prompt"`, the LLM must return JSON:
+**Input**:
+```json
+{
+  "session_id": "abc123",
+  "cwd": "/Users/username/project",
+  "hook_event_name": "ConfigChange",
+  "source": "user_settings",
+  "file_path": "/home/user/.claude/settings.json"
+}
+```
+
+**Matcher values**: `user_settings`, `project_settings`, `local_settings`, `policy_settings`, `skills`
+
+**Output**: Exit 2 to block, or `{"decision": "block"}`
+
+---
+
+## Prompt/Agent Hook Response Format
+
+When using `type: "prompt"` or `type: "agent"`, the model returns:
+
+```json
+{"ok": true}
+```
+
+Or to block:
 
 ```json
 {
-  "decision": "approve" | "block",
-  "reason": "Detailed explanation",
-  "systemMessage": "Optional message",
-  "continue": true | false,
-  "stopReason": "Optional stop message"
+  "ok": false,
+  "reason": "Detailed explanation of what needs to change"
 }
 ```
 
-**Example prompt**:
-```
-Evaluate this command: $ARGUMENTS
-
-Check if it's safe to execute.
-
-Return JSON:
-{
-  "decision": "approve" or "block",
-  "reason": "your explanation"
-}
-```
-
-The `$ARGUMENTS` placeholder is replaced with the hook's input JSON.
+The `$ARGUMENTS` placeholder in the prompt is replaced with the hook's input JSON.
 
 ---
 
@@ -395,13 +440,14 @@ Different tools provide different `tool_input` fields:
 ```json
 {
   "tool_input": {
-    // MCP tool-specific parameters
+    // MCP tool-specific parameters vary by server and tool
   }
 }
 ```
 
-Access these in hooks:
+Access these in command hooks:
 ```bash
+input=$(cat)
 command=$(echo "$input" | jq -r '.tool_input.command')
 file_path=$(echo "$input" | jq -r '.tool_input.file_path')
 ```
@@ -410,7 +456,7 @@ file_path=$(echo "$input" | jq -r '.tool_input.file_path')
 
 ## Modifying Tool Input
 
-PreToolUse hooks can modify `tool_input` before execution:
+PreToolUse hooks can modify `tool_input` before execution via `updatedInput`:
 
 **Original input**:
 ```json
@@ -421,49 +467,82 @@ PreToolUse hooks can modify `tool_input` before execution:
 }
 ```
 
-**Hook output**:
+**Hook output** (structured JSON):
 ```json
 {
-  "decision": "approve",
-  "reason": "Adding --save-exact flag",
-  "updatedInput": {
-    "command": "npm install --save-exact lodash"
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "updatedInput": {
+      "command": "npm install --save-exact lodash"
+    }
   }
 }
 ```
 
-**Result**: Tool executes with modified input.
-
 **Partial updates**: Only specify fields you want to change:
 ```json
 {
-  "updatedInput": {
-    "timeout": 300000  // Only update timeout, keep other fields
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "updatedInput": {
+      "timeout": 300000
+    }
   }
 }
 ```
 
 ---
 
-## Error Handling
+## Common Output Fields
 
-**Command hooks**: Return non-zero exit code to indicate error
-```bash
-if [ error ]; then
-  echo '{"decision": "block", "reason": "Error occurred"}' >&2
-  exit 1
-fi
-```
+These fields can be included in any hook's JSON output:
 
-**Prompt hooks**: LLM should return valid JSON. If malformed, hook fails gracefully.
-
-**Timeout**: Set `timeout` (ms) to prevent hanging:
 ```json
 {
-  "type": "command",
-  "command": "/path/to/slow-script.sh",
-  "timeout": 30000
+  "continue": true,
+  "stopReason": "Message shown to user when continue is false",
+  "suppressOutput": false,
+  "systemMessage": "Warning message shown to user"
 }
 ```
 
-Default: 60000ms (60s)
+- `continue`: If `false`, Claude stops processing entirely (takes precedence over event-specific decisions)
+- `stopReason`: Message shown to the user when `continue` is `false` (not shown to Claude)
+- `suppressOutput`: If `true`, hide hook's stdout from verbose mode output
+- `systemMessage`: Warning message shown to the user
+
+## Common Hook Handler Fields
+
+These fields apply to all hook types in the configuration:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | Yes | `"command"`, `"prompt"`, or `"agent"` |
+| `timeout` | No | Seconds. Defaults: 600 (command), 30 (prompt), 60 (agent) |
+| `statusMessage` | No | Custom spinner message while hook runs |
+| `once` | No | If `true`, runs only once per session (skills/agents only) |
+
+**Command-only fields**:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `command` | Yes | Shell command to execute |
+| `async` | No | If `true`, runs in background without blocking. Output delivered on next turn |
+
+**Prompt/Agent-only fields**:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `prompt` | Yes | Prompt text. `$ARGUMENTS` placeholder replaced with hook input JSON |
+| `model` | No | Model to use. Defaults to a fast model |
+
+## Decision Control Summary
+
+| Events | Decision pattern | Key fields |
+|--------|-----------------|------------|
+| UserPromptSubmit, PostToolUse, PostToolUseFailure, Stop, SubagentStop, ConfigChange | Top-level `decision` | `decision: "block"`, `reason` |
+| TeammateIdle, TaskCompleted | Exit code only | Exit 2 blocks, stderr as feedback |
+| PreToolUse | `hookSpecificOutput` | `permissionDecision` (allow/deny/ask), `permissionDecisionReason` |
+| PermissionRequest | `hookSpecificOutput` | `decision.behavior` (allow/deny) |
