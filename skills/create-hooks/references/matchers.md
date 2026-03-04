@@ -1,14 +1,21 @@
 # Matchers and Pattern Matching
 
-Complete guide to matching tools with hook matchers.
+Complete guide to matching tools and contexts with hook matchers.
 
 ## What are matchers?
 
-Matchers are regex patterns that filter which tools trigger a hook. They allow you to:
-- Target specific tools (e.g., only `Bash`)
-- Match multiple tools (e.g., `Write|Edit`)
-- Match tool categories (e.g., all MCP tools)
-- Match everything (omit matcher)
+Matchers are regex patterns that filter when a hook fires. Each event type matches on a different field:
+
+| Event | What matcher filters | Example values |
+|-------|---------------------|----------------|
+| `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest` | tool name | `Bash`, `Edit\|Write`, `mcp__.*` |
+| `SessionStart` | how the session started | `startup`, `resume`, `clear`, `compact` |
+| `SessionEnd` | why the session ended | `clear`, `logout`, `prompt_input_exit`, `bypass_permissions_disabled`, `other` |
+| `Notification` | notification type | `permission_prompt`, `idle_prompt`, `auth_success`, `elicitation_dialog` |
+| `SubagentStart`, `SubagentStop` | agent type | `Bash`, `Explore`, `Plan`, or custom agent names |
+| `PreCompact` | what triggered compaction | `manual`, `auto` |
+| `ConfigChange` | config type | `user_settings`, `project_settings`, `local_settings`, `policy_settings`, `skills` |
+| `UserPromptSubmit`, `Stop`, `TeammateIdle`, `TaskCompleted` | **no matcher support** | always fires on every occurrence |
 
 ---
 
@@ -22,11 +29,11 @@ Matchers use JavaScript regex syntax:
 }
 ```
 
-The pattern is tested against the tool name using `new RegExp(pattern).test(toolName)`.
+The pattern is tested against the matched field using `new RegExp(pattern).test(value)`.
 
 ---
 
-## Common Patterns
+## Tool Name Patterns
 
 ### Exact match
 ```json
@@ -90,52 +97,73 @@ Case-sensitive! `write` won't match `Write`.
 
 ---
 
-## Tool Categories
+## Session and Context Patterns
 
-### All file operations
+### SessionStart — match source
+```json
+{"matcher": "startup"}     // Fresh session start
+{"matcher": "resume"}      // Resumed session
+{"matcher": "clear"}       // After /clear command
+{"matcher": "compact"}     // After context compaction
+```
+
+**Common use**: Re-inject critical context after compaction:
 ```json
 {
-  "matcher": "Read|Write|Edit|Glob|Grep"
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Reminder: use Bun, not npm. Run bun test before committing.'"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-### All bash tools
+### SessionEnd — match reason
 ```json
-{
-  "matcher": "Bash.*"
-}
+{"matcher": "clear"}                      // User ran /clear
+{"matcher": "logout"}                     // User logged out
+{"matcher": "prompt_input_exit"}          // User exited at prompt
 ```
-Matches: `Bash`, `BashOutput`, `BashKill`
 
-### All MCP tools
+### Notification — match type
 ```json
-{
-  "matcher": "mcp__.*"
-}
+{"matcher": "permission_prompt"}   // Permission dialog shown
+{"matcher": "idle_prompt"}         // Claude idle, waiting for input
+{"matcher": "auth_success"}        // Authentication succeeded
+{"matcher": "elicitation_dialog"}  // Elicitation dialog shown
 ```
-Matches: `mcp__memory__store`, `mcp__filesystem__read`, etc.
 
-### Specific MCP server
+### PreCompact — match trigger
 ```json
-{
-  "matcher": "mcp__memory__.*"
-}
+{"matcher": "manual"}   // User triggered /compact
+{"matcher": "auto"}     // Automatic compaction
 ```
-Matches: `mcp__memory__store`, `mcp__memory__retrieve`
-Doesn't match: `mcp__filesystem__read`
 
-### Specific MCP tool
+### SubagentStart/SubagentStop — match agent type
 ```json
-{
-  "matcher": "mcp__.*__write.*"
-}
+{"matcher": "Bash"}      // Bash subagent
+{"matcher": "Explore"}   // Explore subagent
+{"matcher": "Plan"}      // Plan subagent
 ```
-Matches: `mcp__filesystem__write`, `mcp__memory__write`
-Doesn't match: `mcp__filesystem__read`
+
+### ConfigChange — match config type
+```json
+{"matcher": "user_settings"}      // ~/.claude/settings.json
+{"matcher": "project_settings"}   // .claude/settings.json
+{"matcher": "skills"}             // Skill files
+```
 
 ---
 
-## MCP Tool Naming
+## MCP Tool Matching
 
 MCP tools follow the pattern: `mcp__{server}__{tool}`
 
@@ -144,18 +172,49 @@ Examples:
 - `mcp__filesystem__read`
 - `mcp__github__create_issue`
 
+**Match all MCP tools**:
+```json
+{"matcher": "mcp__.*"}
+```
+
 **Match all tools from a server**:
 ```json
-{
-  "matcher": "mcp__github__.*"
-}
+{"matcher": "mcp__github__.*"}
 ```
 
 **Match specific tool across all servers**:
 ```json
-{
-  "matcher": "mcp__.*__read.*"
-}
+{"matcher": "mcp__.*__read.*"}
+```
+
+**Match write operations across servers**:
+```json
+{"matcher": "mcp__.*__write.*"}
+```
+
+---
+
+## Tool Categories
+
+### All file operations
+```json
+{"matcher": "Read|Write|Edit|Glob|Grep"}
+```
+
+### All bash tools
+```json
+{"matcher": "Bash.*"}
+```
+Matches: `Bash`, `BashOutput`, `BashKill`
+
+### All MCP tools
+```json
+{"matcher": "mcp__.*"}
+```
+
+### Specific MCP server
+```json
+{"matcher": "mcp__memory__.*"}
 ```
 
 ---
@@ -166,13 +225,13 @@ Examples:
 ```json
 {
   "hooks": {
-    "PreToolUse": [
+    "PostToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.command' >> ~/bash-log.txt"
+            "command": "jq -r '.tool_input.command' >> ~/.claude/command-log.txt"
           }
         ]
       }
@@ -191,7 +250,7 @@ Examples:
         "hooks": [
           {
             "type": "command",
-            "command": "prettier --write $CLAUDE_PROJECT_DIR"
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
           }
         ]
       }
@@ -200,36 +259,17 @@ Examples:
 }
 ```
 
-### Validate all MCP memory writes
+### Log all GitHub MCP tool calls
 ```json
 {
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "mcp__memory__.*",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Validate this memory operation: $ARGUMENTS\n\nCheck if data is appropriate to store.\n\nReturn: {\"decision\": \"approve\" or \"block\", \"reason\": \"why\"}"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Block destructive git commands
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
+        "matcher": "mcp__github__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/check-git-safety.sh"
+            "command": "echo \"GitHub tool called: $(jq -r '.tool_name')\" >&2"
           }
         ]
       }
@@ -238,26 +278,30 @@ Examples:
 }
 ```
 
-`check-git-safety.sh`:
-```bash
-#!/bin/bash
-input=$(cat)
-command=$(echo "$input" | jq -r '.tool_input.command')
-
-if [[ "$command" == *"git push --force"* ]] || \
-   [[ "$command" == *"rm -rf /"* ]] || \
-   [[ "$command" == *"git reset --hard"* ]]; then
-  echo '{"decision": "block", "reason": "Destructive command detected"}'
-else
-  echo '{"decision": "approve", "reason": "Safe"}'
-fi
+### Clean up on /clear
+```json
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f /tmp/claude-scratch-*.txt"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ---
 
 ## Multiple Matchers
 
-You can have multiple matcher blocks for the same event:
+You can have multiple matcher blocks for the same event. Each is evaluated independently:
 
 ```json
 {
@@ -266,28 +310,19 @@ You can have multiple matcher blocks for the same event:
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/bash-validator.sh"
-          }
+          {"type": "command", "command": "/path/to/bash-validator.sh"}
         ]
       },
       {
         "matcher": "Write|Edit",
         "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/file-validator.sh"
-          }
+          {"type": "command", "command": "/path/to/file-validator.sh"}
         ]
       },
       {
         "matcher": "mcp__.*",
         "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/mcp-logger.sh"
-          }
+          {"type": "command", "command": "/path/to/mcp-logger.sh"}
         ]
       }
     ]
@@ -295,7 +330,7 @@ You can have multiple matcher blocks for the same event:
 }
 ```
 
-Each matcher is evaluated independently. A tool can match multiple matchers.
+A tool can match multiple matcher blocks. Matching hooks across different blocks run in parallel.
 
 ---
 
@@ -315,66 +350,28 @@ Debug output shows:
 
 ### Test your matcher
 
-Use JavaScript regex to test patterns:
-
-```javascript
-const toolName = "mcp__memory__store";
-const pattern = "mcp__memory__.*";
-const regex = new RegExp(pattern);
-console.log(regex.test(toolName)); // true
-```
-
-Or in Node.js:
 ```bash
 node -e "console.log(/mcp__memory__.*/.test('mcp__memory__store'))"
 ```
 
 ### Common mistakes
 
-❌ **Case sensitivity**
+**Case sensitivity**:
 ```json
-{
-  "matcher": "bash"  // Won't match "Bash"
-}
+{"matcher": "bash"}   // Won't match "Bash"
+{"matcher": "Bash"}   // Correct
 ```
 
-✅ **Correct**
+**Missing escape for regex wildcard**:
 ```json
-{
-  "matcher": "Bash"
-}
+{"matcher": "mcp__memory__*"}    // * is literal, not wildcard
+{"matcher": "mcp__memory__.*"}   // .* is regex "any characters"
 ```
 
----
-
-❌ **Missing escape**
+**Unintended partial match**:
 ```json
-{
-  "matcher": "mcp__memory__*"  // * is literal, not wildcard
-}
-```
-
-✅ **Correct**
-```json
-{
-  "matcher": "mcp__memory__.*"  // .* is regex for "any characters"
-}
-```
-
----
-
-❌ **Unintended partial match**
-```json
-{
-  "matcher": "Write"  // Matches "Write", "TodoWrite", "NotebookWrite"
-}
-```
-
-✅ **Exact match only**
-```json
-{
-  "matcher": "^Write$"
-}
+{"matcher": "Write"}     // Matches "Write", "TodoWrite", "NotebookWrite"
+{"matcher": "^Write$"}   // Matches only "Write"
 ```
 
 ---
@@ -383,24 +380,18 @@ node -e "console.log(/mcp__memory__.*/.test('mcp__memory__store'))"
 
 ### Negative lookahead (exclude tools)
 ```json
-{
-  "matcher": "^(?!Read).*"
-}
+{"matcher": "^(?!Read).*"}
 ```
 Matches: Everything except `Read`
 
 ### Match any file operation except Grep
 ```json
-{
-  "matcher": "^(Read|Write|Edit|Glob)$"
-}
+{"matcher": "^(Read|Write|Edit|Glob)$"}
 ```
 
 ### Case-insensitive match
 ```json
-{
-  "matcher": "(?i)bash"
-}
+{"matcher": "(?i)bash"}
 ```
 Matches: `Bash`, `bash`, `BASH`
 
@@ -410,36 +401,20 @@ Matches: `Bash`, `bash`, `BASH`
 
 ## Performance Considerations
 
-**Broad matchers** (e.g., `.*`) run on every tool use:
+**Broad matchers** (e.g., no matcher or `.*`) run on every tool use:
 - Simple command hooks: negligible impact
-- Prompt hooks: can slow down significantly
+- Prompt/agent hooks: can slow down significantly
 
 **Recommendation**: Be as specific as possible with matchers to minimize unnecessary hook executions.
 
-**Example**: Instead of matching all tools and checking inside the hook:
+Instead of matching all tools and checking inside the hook:
 ```json
-{
-  "matcher": ".*",  // Runs on EVERY tool
-  "hooks": [
-    {
-      "type": "command",
-      "command": "if [[ $(jq -r '.tool_name') == 'Bash' ]]; then ...; fi"
-    }
-  ]
-}
+{"matcher": ".*", "hooks": [{"type": "command", "command": "if [[ $(jq -r '.tool_name') == 'Bash' ]]; then ...; fi"}]}
 ```
 
 Do this:
 ```json
-{
-  "matcher": "Bash",  // Only runs on Bash
-  "hooks": [
-    {
-      "type": "command",
-      "command": "..."
-    }
-  ]
-}
+{"matcher": "Bash", "hooks": [{"type": "command", "command": "..."}]}
 ```
 
 ---

@@ -150,10 +150,10 @@ Skills are modular capabilities that provide domain expertise on demand. They li
 | **damage-control** | Security hooks blocking dangerous operations | Protecting .env, credentials, destructive commands |
 | **create-plans** | Hierarchical project planning | Planning projects for solo dev + Claude |
 | **spec-interview** | Interview-driven specification building | Starting new projects, defining requirements |
-| **create-subagents** | Guide to creating custom subagents | Building specialized agents |
-| **create-hooks** | Guide to creating event hooks | Automating workflows, validations |
-| **create-slash-commands** | Guide to creating slash commands | Building reusable command prompts |
-| **create-agent-skills** | Guide to creating skills | Building modular capabilities |
+| **manage-subagents** | Guide to creating and managing subagents | Building, configuring, debugging agents |
+| **manage-hooks** | Guide to creating and managing event hooks | Automating workflows, validations |
+| **manage-slash-commands** | Guide to creating and managing slash commands | Building reusable command prompts |
+| **manage-skills** | Guide to creating and managing skills | Building modular capabilities |
 | **create-meta-prompts** | Claude-to-Claude pipeline prompts | Multi-stage workflows (research -> plan -> implement) |
 | **ralph-orchestrator** | Orchestrates Ralph autonomous agent loop — story-by-story execution with verification | Building features with spec → PRD → prd.json → autonomous execution loop |
 | **generate-images** | Image generation/editing via Nano Banana (Gemini) | Creating icons, banners, mockups, editing images |
@@ -505,7 +505,7 @@ description: What the command does
 EOF
 ```
 
-See the `create-slash-commands` skill for comprehensive guidance.
+See the `manage-slash-commands` skill for comprehensive guidance.
 
 ### Creating Your Own Hooks
 

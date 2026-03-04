@@ -20,7 +20,7 @@ ls ~/.claude/skills/
 Present as:
 ```
 Available skills:
-1. create-agent-skills
+1. manage-skills
 2. build-macos-apps
 3. manage-stripe
 ...

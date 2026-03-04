@@ -76,9 +76,6 @@ Ready to execute Ralph?"
 
 Before running Ralph, confirm:
 ```bash
-# Check ralph.sh exists
-ls -la ~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh
-
 # Verify prd.json is valid and has new schema fields
 cat tasks/prd.json | jq '{
   stories: (.userStories | length),
@@ -91,47 +88,53 @@ cat tasks/prd.json | jq '{
 git status
 ```
 
-If ralph.sh doesn't exist, inform user they need to set it up.
+Verify that ralph-coder and ralph-tester agents are available:
+```bash
+ls -la ~/.claude/agents/ralph-coder.md ~/.claude/agents/ralph-tester.md 2>/dev/null || echo "Using toolkit default agents"
+```
 </step>
 
 <step name="5_execute_ralph">
-**Run autonomous implementation via ralph.sh**
+**Run autonomous implementation via subagent loop**
 
-**CRITICAL: ALL implementation MUST go through ralph.sh. NEVER write code or modify project files directly. You are the orchestrator, not the implementer.**
+**CRITICAL: ALL implementation MUST go through ralph-coder/ralph-tester subagents via the Task tool. NEVER write code or modify project files directly. You are the orchestrator, NOT the implementer.**
 
-Ask user for iteration limit:
-"How many iterations should Ralph run? (default: 5, max recommended: 10)"
+Follow the subagent execution loop defined in `workflows/execute-only.md` step 3 (framework detection) and step 4 (subagent loop).
 
-Then execute ralph.sh:
-```bash
-~/projects/claude-code-toolkit/skills/ralph-orchestrator/scripts/ralph.sh [iterations]
-```
+This will:
+1. Detect project framework and build agent routing table
+2. Group independent stories into parallel batches
+3. For each batch:
+   - Phase 1: Spawn ralph-coder Tasks in parallel (one per story, each in a worktree)
+   - Phase 2: Spawn ralph-tester Tasks in parallel (in same worktrees)
+   - Merge successful stories to main, update prd.json
+4. Continue until all stories done or max iterations reached
 
-**After ralph.sh exits, check the exit code:**
-- **Exit 0**: All stories completed. Proceed to step 6.
-- **Exit 1**: Max iterations reached. **STOP and inform the user.** Show status summary and ask for instructions (increase iterations? review failures? adjust stories?).
-- **Exit 2**: All remaining stories blocked or exhausted. **STOP and inform the user.** Show failed stories with their `lastAttemptLog` and ask for instructions.
+**After the loop completes:**
+- **All stories done**: Proceed to step 6.
+- **Max iterations reached**: **STOP and inform the user.** Show status summary and ask for instructions (increase iterations? review failures? adjust stories?).
+- **All blocked/exhausted**: **STOP and inform the user.** Show failed stories with their `lastAttemptLog` and ask for instructions.
 
-**NEVER continue past a non-zero exit code without user approval.**
+**NEVER continue past incomplete execution without user approval.**
 </step>
 
 <step name="6_monitor_completion">
 **Track progress**
 
-Periodically check:
+After execution completes, verify:
 ```bash
 # Story status
 cat tasks/prd.json | jq '.userStories[] | {id, title, status, attempts}'
 
 # Recent commits
-git log --oneline -5
+git log --oneline -10
 
 # Learnings
 tail -20 tasks/progress.txt
 ```
 
-When all stories have `status: "done"`, Ralph outputs `<promise>COMPLETE</promise>` and exits.
-If Ralph exits with code 2, review failed stories and consider revising.
+When all stories have `status: "done"`, report completion to user.
+If any stories remain incomplete, present status and ask for instructions.
 </step>
 
 </process>
@@ -141,8 +144,8 @@ Full pipeline is complete when:
 - [ ] SPEC.md created and reviewed (including verification environment section)
 - [ ] PRD created with verifiable acceptance criteria
 - [ ] prd.json has atomic stories with storyType, verificationCommands, and blockedBy
-- [ ] Ralph executed successfully
+- [ ] Ralph executed via subagent loop with parallel batches
 - [ ] All stories have `status: "done"`
 - [ ] All verification commands passed (real runtime checks)
-- [ ] Code committed and pushed
+- [ ] Code committed and merged to main
 </success_criteria>

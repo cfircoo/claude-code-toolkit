@@ -25,10 +25,10 @@ Skills are modular capabilities that provide domain expertise on demand. When in
 
 | Skill | Description |
 |-------|-------------|
-| [create-agent-skills](create-agent-skills/) | Guide to creating skills |
-| [create-subagents](create-subagents/) | Guide to creating custom subagents |
-| [create-slash-commands](create-slash-commands/) | Guide to creating slash commands |
-| [create-hooks](create-hooks/) | Guide to creating event hooks |
+| [manage-skills](manage-skills/) | Guide to creating and managing skills |
+| [manage-subagents](manage-subagents/) | Guide to creating and managing subagents |
+| [manage-slash-commands](manage-slash-commands/) | Guide to creating and managing slash commands |
+| [manage-hooks](manage-hooks/) | Guide to creating and managing event hooks |
 
 ## Installation
 

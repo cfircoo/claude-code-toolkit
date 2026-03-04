@@ -1,6 +1,10 @@
 ---
-name: create-slash-commands
-description: Expert guidance for creating Claude Code slash commands. Use when working with slash commands, creating custom commands, understanding command structure, or learning YAML configuration.
+name: manage-slash-commands
+description: Expert guidance for creating and managing Claude Code slash commands. Use when working with slash commands, creating custom commands, understanding command structure, or learning YAML configuration. This skill should be used when the user asks to "create a slash command", "add a command", "manage commands", "build a command", or mentions slash commands, custom commands, or command configuration.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+argument-hint: [action or command description]
+model: sonnet
+context: fork
 ---
 
 <objective>

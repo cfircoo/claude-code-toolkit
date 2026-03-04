@@ -12,7 +12,7 @@ Install Claude Code Toolkit components to ~/.claude/ by asking the user their pr
 Toolkit location: $ARGUMENTS (default: current directory if contains install.sh, otherwise ~/claude-code-toolkit)
 
 Available components:
-- **Skills** (12): git, pytest-best-practices, sqlalchemy-postgres, debug-like-expert, create-plans, spec-interview, create-subagents, create-hooks, create-slash-commands, create-agent-skills, create-meta-prompts, damage-control
+- **Skills** (12): git, pytest-best-practices, sqlalchemy-postgres, debug-like-expert, create-plans, spec-interview, manage-subagents, manage-hooks, manage-slash-commands, manage-skills, create-meta-prompts, damage-control
 - **Agents** (7): git-ops, db-expert, pytest-writer, fullstack-manager, fullstack-api-specialist, fullstack-ui-designer, fullstack-qa-debugger
 - **Commands** (6): commit, push, pr, ship, db, spec-interview
 - **Hooks**: hooks.json + hook scripts

@@ -7,15 +7,15 @@ allowed-tools: Skill(ralph-orchestrator), Skill(spec-interview), Skill(generate-
 <objective>
 Orchestrate the complete Ralph autonomous agent pipeline for feature development.
 
-This skill coordinates: spec-interview → generate-prd → ralph-convert-prd → ralph.sh execution, keeping you in control at each decision point while enabling autonomous implementation.
+This skill coordinates: spec-interview → generate-prd → ralph-convert-prd → subagent execution, keeping you in control at each decision point while enabling autonomous implementation through ralph-coder and ralph-tester subagents.
 </objective>
 
 <context>
 User request: $ARGUMENTS
 
 Current state:
-- prd.json exists: !`[ -f prd.json ] && echo "YES" || echo "NO"`
-- Story status: !`cat prd.json 2>/dev/null | jq -r '(.userStories | length) as $total | ([.userStories[] | select(.passes == true)] | length) as $passed | "\($passed)/\($total) stories complete"' 2>/dev/null || echo "No prd.json"`
+- prd.json exists: !`[ -f tasks/prd.json ] && echo "YES" || echo "NO"`
+- Story status: !`cat tasks/prd.json 2>/dev/null | jq -r '(.userStories | length) as $total | ([.userStories[] | select(.status == "done")] | length) as $done | "\($done)/\($total) stories complete"' 2>/dev/null || echo "No prd.json"`
 </context>
 
 <routing>
@@ -25,7 +25,7 @@ Based on $ARGUMENTS, route to the appropriate workflow:
 |----------|--------|
 | "status", "check", "progress" | Check current prd.json status and suggest next steps |
 | "continue", "from-prd" | Convert existing PRD to prd.json and execute |
-| "execute", "run" | Run ralph.sh on existing prd.json |
+| "execute", "run" | Run subagent loop on existing prd.json |
 | Feature description or empty | Start full pipeline (spec → PRD → prd.json → execute) |
 </routing>
 
@@ -34,12 +34,12 @@ Based on $ARGUMENTS, route to the appropriate workflow:
 2. Present the intake menu if no clear routing from arguments
 3. Follow the selected workflow exactly
 4. Pause at each user checkpoint for approval
-5. For execution, spawn ralph.sh as background task
+5. For execution, spawn ralph-coder/ralph-tester subagents via Task tool with parallel batch execution
 </process>
 
 <success_criteria>
 - Correct workflow selected based on user intent
 - User approves at each checkpoint (spec, PRD, prd.json)
-- All stories reach `passes: true` status
+- All stories reach `status: "done"`
 - Code committed and quality checks passing
 </success_criteria>
