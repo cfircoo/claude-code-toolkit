@@ -2,5 +2,30 @@
   "enabledPlugins": {
     "atlassian@claude-plugins-official": true,
     "github@claude-plugins-official": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash .brain/hooks/session-start.sh"
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "bash .brain/hooks/post-session.sh"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .brain/hooks/post-edit-check.sh"
+          }
+        ]
+      }
+    ]
   }
 }
