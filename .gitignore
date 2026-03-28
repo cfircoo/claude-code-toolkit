@@ -1,2 +1,11 @@
 .DS_*
 *.Identifier
+
+# AI Brain — personal memory (stays local)
+.brain/
+Machine/
+Human/
+
+# Tool artifacts
+.playwright-mcp/
+privatebin-content.md
